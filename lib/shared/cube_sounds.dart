@@ -21,9 +21,33 @@ class AudioCubeSounds implements CubeSounds {
   // Turns overlap when they come fast (quick autoplay), so they share a pool.
   Future<AudioPool>? _turns;
   AudioPlayer? _scramble;
+  Future<void>? _configured;
+
+  /// Game sounds mix with whatever else is playing: a click must not pause
+  /// the user's music (the default takes the audio focus). On iOS they also
+  /// follow the silent switch.
+  static Future<void> _configure() async {
+    if (kIsWeb) return;
+    try {
+      await AudioPlayer.global.setAudioContext(
+        AudioContext(
+          android: const AudioContextAndroid(
+            contentType: AndroidContentType.sonification,
+            usageType: AndroidUsageType.game,
+            audioFocus: AndroidAudioFocus.none,
+          ),
+          iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),
+        ),
+      );
+    } catch (error) {
+      // Desktop platforms have no audio focus to configure.
+      debugPrint('Không cấu hình được âm thanh: $error');
+    }
+  }
 
   @override
   void turn() => _guard(() async {
+    await (_configured ??= _configure());
     final pool = await (_turns ??= AudioPool.createFromAsset(
       path: 'sounds/turn.wav',
       maxPlayers: 4,
@@ -33,6 +57,7 @@ class AudioCubeSounds implements CubeSounds {
 
   @override
   void scramble() => _guard(() async {
+    await (_configured ??= _configure());
     final player = _scramble ??= AudioPlayer();
     await player.stop();
     await player.play(AssetSource('sounds/scramble.wav'));

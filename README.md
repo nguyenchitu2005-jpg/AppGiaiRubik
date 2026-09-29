@@ -6,6 +6,14 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 - **Nhập trạng thái khối** bằng cách tô màu trên sơ đồ 2D hoặc **quét 6 mặt bằng camera**
 - Hai chế độ giải: **Học** (phương pháp tầng cho người mới, 7 giai đoạn có giải thích) và **Giải nhanh** (Kociemba, khoảng 20 bước)
 
+## Tải app (Android)
+
+**[⬇ Tải bản mới nhất](https://github.com/nguyenchitu2005-jpg/AppGiaiRubik/releases/latest)**. Mở link trên điện thoại, tải file `RubikSolver-…apk` rồi bấm vào để cài.
+
+- Máy hỏi *"Cho phép cài ứng dụng không rõ nguồn gốc"*: chọn **Cài đặt** → bật **Cho phép từ nguồn này** → quay lại bấm **Cài đặt**.
+- Nếu Google Play Protect cảnh báo *"Ứng dụng chưa được xác minh"*: bấm **Chi tiết** → **Vẫn cài đặt**. Cảnh báo này xuất hiện vì app không tải từ Google Play.
+- Nếu file `RubikSolver-1.0.0.apk` báo *"Ứng dụng không tương thích"* (máy rất cũ hoặc máy ảo), tải file `RubikSolver-1.0.0-tat-ca-may.apk`.
+
 ## Tiến độ
 
 Chi tiết (các yêu cầu phát sinh, việc đang chờ, kế hoạch tuần 10): [docs/KE_HOACH.md](docs/KE_HOACH.md)
