@@ -140,33 +140,48 @@ void main() {
     expect(find.text('Nhập màu khối'), findsOneWidget);
   });
 
-  testWidgets('quick solve: find, step, autoplay, finish', (tester) async {
-    await pumpApp(tester);
-    await tester.tap(find.text('Xáo trộn'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Giải nhanh (~20 bước)'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Đang tìm lời giải…'), findsOneWidget);
-
-    // The solver runs on a real isolate: let real time pass.
-    for (
-      var i = 0;
-      i < 100 && find.textContaining('Bước ').evaluate().isEmpty;
-      i++
-    ) {
+  Future<void> waitFor(WidgetTester tester, Finder finder) async {
+    // Solvers run on real isolates: let real time pass.
+    for (var i = 0; i < 100 && finder.evaluate().isEmpty; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
       await tester.pump();
     }
-    expect(find.textContaining(RegExp(r'^Bước 1/\d+$')), findsOneWidget);
+    expect(finder, findsWidgets);
+  }
 
-    await tester.tap(find.byTooltip('Bước tiếp'));
+  testWidgets('guide: learn step by step, switch to quick, finish', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Xáo trộn'));
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Học cách giải'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Đang tìm lời giải…'), findsOneWidget);
+    await waitFor(tester, find.textContaining(RegExp(r'^Bước 1/\d+$')));
+    expect(find.text('Chuẩn bị: Cầm khối'), findsOneWidget);
+    expect(find.textContaining('tâm trắng ở dưới'), findsWidgets);
+
+    // The first step turns the whole cube; then the white cross begins.
+    await tester.tap(find.byTooltip('Nước tiếp'));
+    await tester.pumpAndSettle();
+    expect(find.text('Giai đoạn 1/7: Dấu cộng trắng'), findsOneWidget);
     expect(find.textContaining(RegExp(r'^Bước 2/\d+$')), findsOneWidget);
 
+    // Autoplay stops after one step.
+    await tester.tap(find.byTooltip('Tự chạy'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(RegExp(r'^Bước 3/\d+$')), findsOneWidget);
+    expect(find.byTooltip('Tự chạy'), findsOneWidget);
+
+    await tester.tap(find.text('Giải nhanh'));
+    await tester.pump();
+    await waitFor(tester, find.textContaining('Làm lần lượt'));
+    expect(find.text('Giai đoạn 1/7: Dấu cộng trắng'), findsNothing);
     await tester.tap(find.byTooltip('Tự chạy'));
     await tester.pumpAndSettle();
     expect(find.text('Hoàn thành! Khối đã được giải.'), findsOneWidget);
@@ -177,6 +192,21 @@ void main() {
     await tester.tap(finish);
     await tester.pumpAndSettle();
     expect(find.text('Khối đã được giải'), findsOneWidget);
+  });
+
+  testWidgets('library: every formula, each with a demo', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byTooltip('Thư viện công thức'));
+    await tester.pumpAndSettle();
+    for (final name in ['Sune', 'A-perm', 'U-perm', 'Công thức phải']) {
+      expect(find.text(name), findsOneWidget, reason: name);
+    }
+
+    await tester.tap(find.text('Xem minh hoạ').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Tự chạy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hoàn thành! Khối đã được giải.'), findsOneWidget);
   });
 
   testWidgets('editor: undo and redo edits', (tester) async {

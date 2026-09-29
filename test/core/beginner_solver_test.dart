@@ -64,6 +64,7 @@ void main() {
             [for (var i = 0; i < 9; i++) i].every((i) => work[i] == Face.u);
       }),
       SolveStage.lastLayerEdges => physical.isSolved,
+      SolveStage.quick => false, // never produced by the beginner method
     };
   }
 

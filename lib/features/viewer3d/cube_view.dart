@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vector_math/vector_math_64.dart' show Quaternion, Vector3;
 
 import '../../core/cube/cube_state.dart';
+import '../../core/cube/face.dart';
+import '../../core/cube/move.dart';
 import '../../state/settings.dart';
 import 'cube_animation_controller.dart';
 import 'cube_painter.dart';
@@ -18,12 +20,20 @@ class CubeView extends ConsumerStatefulWidget {
     required this.state,
     this.turn,
     this.onStickerTap,
+    this.hint,
+    this.focus,
   });
 
   final CubeState state;
 
   /// Layer currently mid-turn, if any.
   final LayerTurn? turn;
+
+  /// Next move, drawn as arrows while nothing is turning.
+  final Move? hint;
+
+  /// Colors of a piece to outline.
+  final Set<Face>? focus;
 
   /// Called with the facelet index of a tapped sticker.
   final ValueChanged<int>? onStickerTap;
@@ -143,6 +153,8 @@ class _CubeViewState extends ConsumerState<CubeView>
                       view: _orientation.asRotationMatrix(),
                       turn: widget.turn,
                       showFaceLabels: showFaceLabels,
+                      hint: widget.hint,
+                      focus: widget.focus,
                     ),
                   ),
                 ),
@@ -179,16 +191,27 @@ class _CubeViewState extends ConsumerState<CubeView>
 
 /// [CubeView] driven by a [CubeAnimationController].
 class AnimatedCubeView extends StatelessWidget {
-  const AnimatedCubeView({super.key, required this.controller});
+  const AnimatedCubeView({
+    super.key,
+    required this.controller,
+    this.hint,
+    this.focus,
+  });
 
   final CubeAnimationController controller;
+  final Move? hint;
+  final Set<Face>? focus;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: controller,
-      builder: (context, _) =>
-          CubeView(state: controller.displayed, turn: controller.turn),
+      builder: (context, _) => CubeView(
+        state: controller.displayed,
+        turn: controller.turn,
+        hint: controller.isAnimating ? null : hint,
+        focus: focus,
+      ),
     );
   }
 }

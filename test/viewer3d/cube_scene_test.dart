@@ -148,6 +148,60 @@ void main() {
     }
   });
 
+  test('hint arrows point the way the stickers move', () {
+    final state = CubeState.solved();
+    for (final layer in MoveLayer.values) {
+      for (final turns in [1, 3]) {
+        final move = Move(layer, turns);
+        final arrows = CubeScene.hintArrows(
+          move: move,
+          view: defaultView,
+          size: size,
+        );
+        expect(arrows, isNotEmpty, reason: move.notation);
+
+        final before = stickers(state, defaultView, LayerTurn.forMove(move, 0));
+        final after = stickers(
+          state,
+          defaultView,
+          LayerTurn.forMove(move, 0.05),
+        );
+        for (final arrow in arrows) {
+          final points = arrow.points;
+          final mid = points.length ~/ 2;
+          final at = points.length == 2
+              ? (points[0] + points[1]) / 2
+              : points[mid];
+          final direction = points.length == 2
+              ? points[1] - points[0]
+              : points[mid + 1] - points[mid - 1];
+          final nearest = before.reduce(
+            (a, b) =>
+                (a.centroid - at).distance < (b.centroid - at).distance ? a : b,
+          );
+          final moved = after.firstWhere(
+            (p) => p.faceletIndex == nearest.faceletIndex,
+          );
+          final motion = moved.centroid - nearest.centroid;
+          expect(
+            motion.dx * direction.dx + motion.dy * direction.dy,
+            greaterThan(0),
+            reason: '${move.notation}: arrow at $at',
+          );
+        }
+      }
+    }
+  });
+
+  test('half turns get double-headed arrows', () {
+    final arrows = CubeScene.hintArrows(
+      move: Move.parse('R2'),
+      view: defaultView,
+      size: size,
+    );
+    expect(arrows.every((a) => a.doubleTurn), isTrue);
+  });
+
   group('snapOrientation', () {
     final tilt = CubeScene.defaultOrientation().asRotationMatrix();
 

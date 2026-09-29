@@ -39,7 +39,25 @@ enum SolveStage {
   lastLayerEdges(
     'Đặt cạnh tầng 3',
     'Đưa 4 cạnh tầng trên về đúng vị trí bằng U-perm. Khối được giải!',
+  ),
+
+  /// Not part of the beginner method: a short computer-found solution.
+  quick(
+    'Lời giải ngắn',
+    'Lời giải khoảng 20 bước tìm bằng thuật toán Kociemba. Ngắn nhưng khó '
+        'nhớ: hãy làm theo từng nước.',
   );
+
+  /// The seven stages of the beginner method, in order.
+  static const learning = [
+    whiteCross,
+    whiteCorners,
+    middleLayer,
+    yellowCross,
+    yellowFace,
+    lastLayerCorners,
+    lastLayerEdges,
+  ];
 
   const SolveStage(this.title, this.goal);
 

@@ -7,7 +7,9 @@ import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
 import '../../state/settings.dart';
 import '../input/net_editor_screen.dart';
-import '../solve/solution_screen.dart';
+import '../../shared/widgets/speed_selector.dart';
+import '../guide/guide_screen.dart';
+import '../library/algorithm_library_screen.dart';
 import '../viewer3d/cube_animation_controller.dart';
 import '../viewer3d/cube_view.dart';
 
@@ -58,6 +60,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.read(cubeSessionProvider.notifier).applyMove(move);
   }
 
+  void _openGuide(CubeState start, SolveMode mode) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GuideScreen(start: start, initialMode: mode),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(cubeSessionProvider, _onSessionChanged);
@@ -67,8 +77,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
 
     final session = ref.watch(cubeSessionProvider);
-    final speed = ref.watch(animationSpeedProvider);
     final controller = ref.read(cubeSessionProvider.notifier);
+    final solved = session.cube.isSolved;
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -86,11 +96,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Text(
-                    'Rubik Solver',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Rubik Solver',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Thư viện công thức',
+                        onPressed: () =>
+                            Navigator.of(context)
+                                .pushNamed(AlgorithmLibraryScreen.routeName),
+                        icon: const Icon(Icons.menu_book),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -155,36 +178,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Text('Tốc độ xoay', style: theme.textTheme.titleSmall),
-                      const SizedBox(width: 12),
                       Expanded(
-                        child: SegmentedButton<AnimationSpeed>(
-                          showSelectedIcon: false,
-                          segments: [
-                            for (final s in AnimationSpeed.values)
-                              ButtonSegment(value: s, label: Text(s.label)),
-                          ],
-                          selected: {speed},
-                          onSelectionChanged: (s) => ref
-                              .read(animationSpeedProvider.notifier)
-                              .set(s.single),
+                        child: FilledButton.icon(
+                          onPressed: solved
+                              ? null
+                              : () => _openGuide(session.cube, SolveMode.learn),
+                          icon: Icon(SolveMode.learn.icon),
+                          label: const Text('Học cách giải'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton.tonalIcon(
+                          onPressed: solved
+                              ? null
+                              : () => _openGuide(session.cube, SolveMode.quick),
+                          icon: Icon(SolveMode.quick.icon),
+                          label: const Text('Giải nhanh'),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  FilledButton.tonalIcon(
-                    onPressed: session.cube.isSolved
-                        ? null
-                        : () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  SolutionScreen(start: session.cube),
-                            ),
-                          ),
-                    icon: const Icon(Icons.bolt),
-                    label: const Text('Giải nhanh (~20 bước)'),
-                  ),
+                  const SizedBox(height: 16),
+                  const SpeedSelector(),
                   const SizedBox(height: 12),
                   _MovePad(onMove: _turn),
                   if (session.scramble.isNotEmpty) ...[

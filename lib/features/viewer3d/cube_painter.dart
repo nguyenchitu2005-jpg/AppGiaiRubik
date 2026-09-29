@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix3, Matrix4;
 
 import '../../core/cube/cube_state.dart';
 import '../../core/cube/face.dart';
+import '../../core/cube/move.dart';
 import '../../shared/cube_palette.dart';
 import 'cube_scene.dart';
 
@@ -12,6 +14,8 @@ class CubePainter extends CustomPainter {
     required this.view,
     this.turn,
     this.showFaceLabels = false,
+    this.hint,
+    this.focus,
   });
 
   final CubeState state;
@@ -20,6 +24,14 @@ class CubePainter extends CustomPainter {
 
   /// Print the face letter and name (U · Trên, …) on each center sticker.
   final bool showFaceLabels;
+
+  /// Next move to make: shown as arrows while no layer is turning.
+  final Move? hint;
+
+  /// Colors of a piece to outline (e.g. the corner being solved).
+  final Set<Face>? focus;
+
+  static const _accent = Color(0xFF7C3AED);
 
   static const _bodyLit = Color(0xFF2A2A2A);
 
@@ -43,6 +55,13 @@ class CubePainter extends CustomPainter {
       ..strokeWidth = 1
       ..strokeJoin = StrokeJoin.round;
 
+    final focused = focus == null
+        ? const <int>{}
+        : _pieceFacelets(state, focus!);
+    final outline = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round;
+
     for (final polygon in CubeScene.build(
       state: state,
       view: view,
@@ -62,12 +81,113 @@ class CubePainter extends CustomPainter {
           _ambient + (1 - _ambient) * polygon.shade,
         )!;
         canvas.drawPath(path, fill..color = color);
+        if (focused.contains(polygon.faceletIndex)) {
+          final width = size.shortestSide * 0.012;
+          canvas
+            ..drawPath(
+              path,
+              outline
+                ..color = Colors.white
+                ..strokeWidth = width * 2,
+            )
+            ..drawPath(
+              path,
+              outline
+                ..color = _accent
+                ..strokeWidth = width,
+            );
+        }
         final label = polygon.label;
         if (showFaceLabels && label != null) {
           _paintLabel(canvas, label, CubePalette.labelOn(sticker));
         }
       }
     }
+
+    if (hint != null && turn == null) {
+      for (final arrow in CubeScene.hintArrows(
+        move: hint!,
+        view: view,
+        size: size,
+      )) {
+        _paintArrow(canvas, arrow, size.shortestSide * 0.02);
+      }
+    }
+  }
+
+  void _paintArrow(Canvas canvas, HintArrow arrow, double width) {
+    final points = arrow.points;
+    final heads = Path();
+    void head(Offset tip, Offset direction) {
+      final normal = Offset(-direction.dy, direction.dx);
+      final length = width * 2.4;
+      heads.addPolygon([
+        tip + direction * length * 0.6,
+        tip - direction * length * 0.4 + normal * length * 0.6,
+        tip - direction * length * 0.4 - normal * length * 0.6,
+      ], true);
+    }
+
+    final (tip, direction) = _pointFromTip(points, 0);
+    head(tip, direction);
+    if (arrow.doubleTurn) {
+      final (second, secondDirection) = _pointFromTip(points, width * 2.6);
+      head(second, secondDirection);
+    }
+
+    final line = Path()..addPolygon(points, false);
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas
+      ..drawPath(
+        line,
+        stroke
+          ..color = Colors.white
+          ..strokeWidth = width * 1.8,
+      )
+      ..drawPath(heads, stroke..strokeWidth = width * 0.8)
+      ..drawPath(
+        line,
+        stroke
+          ..color = _accent
+          ..strokeWidth = width,
+      )
+      ..drawPath(heads, Paint()..color = _accent);
+  }
+
+  /// The point [distance] back from the end of [points], with the travel
+  /// direction there.
+  static (Offset, Offset) _pointFromTip(List<Offset> points, double distance) {
+    var remaining = distance;
+    for (var i = points.length - 1; i > 0; i--) {
+      final segment = points[i] - points[i - 1];
+      final length = segment.distance;
+      if (length == 0) continue;
+      final direction = segment / length;
+      if (length >= remaining) {
+        return (points[i] - direction * remaining, direction);
+      }
+      remaining -= length;
+    }
+    final segment = points[1] - points[0];
+    return (points.first, segment / segment.distance);
+  }
+
+  /// Sticker indices of the piece whose colors are exactly [colors].
+  static Set<int> _pieceFacelets(CubeState state, Set<Face> colors) {
+    final byCubie = <IVec3, List<int>>{};
+    for (var i = 0; i < 54; i++) {
+      byCubie.putIfAbsent(FaceletGeometry.position(i), () => []).add(i);
+    }
+    for (final facelets in byCubie.values) {
+      if (setEquals({for (final i in facelets) state[i]}, colors) &&
+          facelets.length == colors.length) {
+        return facelets.toSet();
+      }
+    }
+    return const {};
   }
 
   void _paintLabel(Canvas canvas, FaceLabel faceLabel, Color color) {
@@ -144,5 +264,7 @@ class CubePainter extends CustomPainter {
       old.state != state ||
       old.view != view ||
       old.turn != turn ||
-      old.showFaceLabels != showFaceLabels;
+      old.showFaceLabels != showFaceLabels ||
+      old.hint != hint ||
+      !setEquals(old.focus, focus);
 }

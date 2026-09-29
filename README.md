@@ -15,7 +15,7 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 | 3 | Animation xoay tầng và sơ đồ 2D để nhập màu | Xong |
 | 4 | Kiểm tra khối hợp lệ và chế độ Giải nhanh (Kociemba) | Xong |
 | 5–6 | Chế độ Học (phương pháp tầng) | Xong |
-| 7 | Màn hình hướng dẫn giải và thư viện công thức | |
+| 7 | Màn hình hướng dẫn giải và thư viện công thức | Xong |
 | 8–9 | Quét camera và nhận diện màu | |
 | 10 | Hoàn thiện, build bản phát hành | |
 
@@ -36,7 +36,8 @@ lib/
   features/viewer3d/  vẽ khối 3D
   features/home/      màn hình chính
   features/input/     màn hình nhập màu (tô trên sơ đồ 2D hoặc khối 3D)
-  features/solve/     màn hình lời giải (phát từng bước trên khối 3D)
+  features/guide/     màn hình hướng dẫn: chế độ Học / Giải nhanh, mũi tên chỉ hướng xoay
+  features/library/   thư viện công thức kèm minh hoạ
   shared/             bảng màu và widget dùng chung (sơ đồ 2D)
   state/              quản lý trạng thái (Riverpod)
 test/                 unit test và widget test

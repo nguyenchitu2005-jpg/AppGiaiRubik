@@ -5,6 +5,7 @@ import '../../cube/cube_validator.dart';
 import '../../cube/cubie_cube.dart';
 import '../../cube/face.dart';
 import '../../cube/move.dart';
+import '../algorithms.dart';
 import '../move_simplifier.dart';
 import '../solve_step.dart';
 import 'edge_search.dart';
@@ -49,13 +50,13 @@ abstract final class BeginnerSolver {
 }
 
 // Algorithms, as the user will read them.
-const _trigger = "R U R' U'";
-const _rightInsert = "U R U' R' U' F' U F";
-const _leftInsert = "U' L' U L U F U' F'";
-const _crossAlg = "F R U R' U' F'";
-const _sune = "R U R' U R U2 R'";
-const _aPerm = "R' F R' B2 R F' R' B2 R2";
-const _uPerm = "R U' R U R U R U' R' U' R2";
+final _trigger = Algorithms.trigger.notation;
+final _rightInsert = Algorithms.rightInsert.notation;
+final _leftInsert = Algorithms.leftInsert.notation;
+final _crossAlg = Algorithms.yellowCross.notation;
+final _sune = Algorithms.sune.notation;
+final _aPerm = Algorithms.aPerm.notation;
+final _uPerm = Algorithms.uPerm.notation;
 
 const _dEdges = [Edge.dr, Edge.df, Edge.dl, Edge.db];
 const _dCorners = [Corner.dfr, Corner.dlf, Corner.dbl, Corner.drb];

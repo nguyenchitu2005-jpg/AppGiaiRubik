@@ -68,6 +68,17 @@ class FaceLabel {
   }
 }
 
+/// An arrow showing which way a layer is about to turn. [points] is a
+/// polyline in screen space ending at the tip.
+class HintArrow {
+  const HintArrow(this.points, {required this.doubleTurn});
+
+  final List<Offset> points;
+
+  /// Half turn (e.g. R2): drawn with two heads.
+  final bool doubleTurn;
+}
+
 /// A projected polygon ready to be filled, in back-to-front order.
 class ScenePolygon {
   const ScenePolygon({
@@ -213,14 +224,8 @@ abstract final class CubeScene {
     required Size size,
     LayerTurn? turn,
   }) {
-    final scale = size.shortestSide / 2 / _fitRadius;
-    final origin = size.center(Offset.zero);
+    final project = _projector(size);
     final camera = Vector3(0, 0, cameraDistance);
-
-    Offset project(Vector3 p) {
-      final f = cameraDistance / (cameraDistance - p.z) * scale;
-      return Offset(origin.dx + p.x * f, origin.dy - p.y * f);
-    }
 
     final polygons = <ScenePolygon>[];
     for (final group in _groups(view, turn)) {
@@ -281,6 +286,81 @@ abstract final class CubeScene {
       }
     }
     return polygons;
+  }
+
+  /// Arrows for [move] on every visible face its layer crosses, plus a
+  /// curved arrow on the turning face itself when that face is visible.
+  static List<HintArrow> hintArrows({
+    required Move move,
+    required Matrix3 view,
+    required Size size,
+  }) {
+    final project = _projector(size);
+    final camera = Vector3(0, 0, cameraDistance);
+    final layer = move.layer;
+    final n = _vec(layer.face.normal);
+    final depth = layer.depth == LayerDepth.outer ? 1.0 : 0.0;
+    final direction = move.isPrime ? -1.0 : 1.0;
+    final doubleTurn = move.isDouble;
+
+    bool visible(Vector3 point, Vector3 normal) =>
+        (camera - view.transformed(point)).dot(view.transformed(normal)) > 0;
+
+    Offset screen(Vector3 p) => project(view.transformed(p));
+
+    final arrows = <HintArrow>[];
+    for (final face in Face.values) {
+      final m = _vec(face.normal);
+      if (m.dot(n).abs() > 0.5) continue; // not crossed by the layer
+      final center = m * 1.5 + n * depth;
+      if (!visible(center, m)) continue;
+      // Stickers move along -(n × p) when turning clockwise about n.
+      final along = -n.cross(m) * direction;
+      final lift = m * 0.04;
+      arrows.add(
+        HintArrow([
+          screen(center - along * 1.2 + lift),
+          screen(center + along * 1.2 + lift),
+        ], doubleTurn: doubleTurn),
+      );
+    }
+
+    if (layer.depth != LayerDepth.middle) {
+      final center = n * 1.5;
+      if (visible(center, n)) {
+        final (right, up) = _faceAxes[layer.face]!;
+        final r = _vec(right), u = _vec(up);
+        // right × up = outward normal, so clockwise means decreasing angle.
+        // Counter-clockwise turns use the same arc, walked the other way.
+        const start = 2.1, sweep = 4.2, samples = 24;
+        final arc = [
+          for (var i = 0; i <= samples; i++)
+            screen(
+              center +
+                  n * 0.04 +
+                  (r * math.cos(start - sweep * i / samples) +
+                          u * math.sin(start - sweep * i / samples)) *
+                      0.95,
+            ),
+        ];
+        arrows.add(
+          HintArrow(
+            direction > 0 ? arc : arc.reversed.toList(),
+            doubleTurn: doubleTurn,
+          ),
+        );
+      }
+    }
+    return arrows;
+  }
+
+  static Offset Function(Vector3) _projector(Size size) {
+    final scale = size.shortestSide / 2 / _fitRadius;
+    final origin = size.center(Offset.zero);
+    return (p) {
+      final f = cameraDistance / (cameraDistance - p.z) * scale;
+      return Offset(origin.dx + p.x * f, origin.dy - p.y * f);
+    };
   }
 
   static FaceLabel _label(
