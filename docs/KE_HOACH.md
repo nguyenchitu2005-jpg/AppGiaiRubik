@@ -8,7 +8,7 @@ _Cập nhật: 29/09/2026_
 - Repo: https://github.com/nguyenchitu2005-jpg/AppGiaiRubik (nhánh `main`, commit mới nhất `7a2b1ae`)
 - Thư mục: `D:\androistudio\baitap\3drubik`. Flutter 3.47.3, Dart 3.13, chỉ Android, khoá màn hình dọc.
 - Kiểm thử: **92 test đều qua**, `flutter analyze` không báo lỗi, APK debug và release đều build được.
-- **Chưa chạy trên điện thoại/máy ảo thật nào.**
+- Đã chạy trên điện thoại thật: OPPO CPH2797, Android 16 (bản release).
 
 ---
 
@@ -25,9 +25,19 @@ _Cập nhật: 29/09/2026_
 | 8–9 | Quét 6 mặt bằng camera, phân loại màu, tự sửa mặt quét lệch, màn hình kiểm tra kết quả | ✅ Code xong, ⏳ **chờ thử trên máy thật** | `b627b97` |
 | 10 | Hoàn thiện và phát hành | ⏸ Tạm dừng, đợi kết quả thử camera | — |
 
+### Nền tảng
+| Nền tảng | Trạng thái |
+|---|---|
+| Android | ✅ Chạy trên điện thoại thật (OPPO CPH2797, Android 16) |
+| Windows | ✅ Build bản release và chạy được. Không có quét camera, vẫn nhập màu tay |
+| iOS | ⏸ Đã có cấu hình (quyền camera, tên app, icon), **chưa build thử** vì cần máy Mac |
+| macOS | ⏸ Đã có cấu hình (tên app, cửa sổ, icon), **chưa build thử** vì cần máy Mac. Không có quét camera |
+
 ### Yêu cầu phát sinh đã làm (ngoài kế hoạch gốc)
 | Yêu cầu | Commit |
 |---|---|
+| Logo mới (khối 3D, nền xanh–tím) và huy hiệu chú chó | `9d8d90b`, `1e8b92d` |
+| Chạy đa nền tảng: Android, iOS, Windows, macOS | `e9d8c74` |
 | Ký hiệu mặt (U·Trên, F·Trước…) trên khối 3D, luôn đứng thẳng, có nút bật/tắt | `4dbec53` |
 | Nút hoàn tác/làm lại ở màn hình nhập màu. Khối tự về tư thế đứng thẳng sau khi xoay | `36a5956` |
 | Ký hiệu mặt trên sơ đồ 2D | `6568574` |
@@ -62,6 +72,7 @@ Khả năng phải sửa sau khi thử:
 | Lưu cài đặt | Tốc độ xoay, bật/tắt ký hiệu mặt (`shared_preferences`), trong [settings.dart](../lib/state/settings.dart) |
 | Lịch sử giải | Lưu các lần giải: ngày, chế độ, số nước. Màn hình xem lại |
 | Đo hiệu năng | `flutter run --profile`, mục tiêu ≥ 55 fps khi xoay/animation |
+| Kiểm chứng iOS/macOS | Build thử trên Mac hoặc GitHub Actions (người dùng chọn làm sau) |
 | Phát hành | Tạo keystore ký bản release (người dùng quyết định), build APK/AAB, hoàn thiện README |
 
 ### Quyết định còn treo (người dùng chưa trả lời)
