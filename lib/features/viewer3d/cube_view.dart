@@ -1,15 +1,18 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vector_math/vector_math_64.dart' show Quaternion, Vector3;
 
 import '../../core/cube/cube_state.dart';
+import '../../state/settings.dart';
 import 'cube_animation_controller.dart';
 import 'cube_painter.dart';
 import 'cube_scene.dart';
 
 /// Interactive 3D cube. Drag anywhere on it to look around; tap a sticker
-/// to report it through [onStickerTap].
-class CubeView extends StatefulWidget {
+/// to report it through [onStickerTap]. Face labels follow
+/// [faceLabelsProvider].
+class CubeView extends ConsumerStatefulWidget {
   const CubeView({
     super.key,
     required this.state,
@@ -26,10 +29,10 @@ class CubeView extends StatefulWidget {
   final ValueChanged<int>? onStickerTap;
 
   @override
-  State<CubeView> createState() => _CubeViewState();
+  ConsumerState<CubeView> createState() => _CubeViewState();
 }
 
-class _CubeViewState extends State<CubeView> {
+class _CubeViewState extends ConsumerState<CubeView> {
   static const _radiansPerPixel = 0.012;
 
   Quaternion _orientation = CubeScene.defaultOrientation();
@@ -73,6 +76,7 @@ class _CubeViewState extends State<CubeView> {
 
   @override
   Widget build(BuildContext context) {
+    final showFaceLabels = ref.watch(faceLabelsProvider);
     return AspectRatio(
       aspectRatio: 1,
       child: LayoutBuilder(
@@ -97,6 +101,7 @@ class _CubeViewState extends State<CubeView> {
                       state: widget.state,
                       view: _orientation.asRotationMatrix(),
                       turn: widget.turn,
+                      showFaceLabels: showFaceLabels,
                     ),
                   ),
                 ),
@@ -105,10 +110,23 @@ class _CubeViewState extends State<CubeView> {
             Positioned(
               right: 0,
               top: 0,
-              child: IconButton(
-                tooltip: 'Về góc nhìn mặc định',
-                onPressed: _resetView,
-                icon: const Icon(Icons.threed_rotation),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: showFaceLabels
+                        ? 'Ẩn ký hiệu mặt'
+                        : 'Hiện ký hiệu mặt',
+                    isSelected: showFaceLabels,
+                    onPressed: ref.read(faceLabelsProvider.notifier).toggle,
+                    icon: const Icon(Icons.label_off_outlined),
+                    selectedIcon: const Icon(Icons.label_outline),
+                  ),
+                  IconButton(
+                    tooltip: 'Về góc nhìn mặc định',
+                    onPressed: _resetView,
+                    icon: const Icon(Icons.threed_rotation),
+                  ),
+                ],
               ),
             ),
           ],

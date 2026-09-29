@@ -24,3 +24,15 @@ final animationSpeedProvider =
     NotifierProvider<AnimationSpeedController, AnimationSpeed>(
       AnimationSpeedController.new,
     );
+
+/// Whether face letters and names are printed on the 3D cube's centers.
+class FaceLabelsController extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void toggle() => state = !state;
+}
+
+final faceLabelsProvider = NotifierProvider<FaceLabelsController, bool>(
+  FaceLabelsController.new,
+);

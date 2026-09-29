@@ -7,7 +7,8 @@ import 'package:rubik_solver/core/cube/face.dart';
 import 'package:rubik_solver/core/cube/move.dart';
 import 'package:rubik_solver/core/cube/scrambler.dart';
 import 'package:rubik_solver/features/viewer3d/cube_scene.dart';
-import 'package:vector_math/vector_math_64.dart' show Matrix3;
+import 'package:vector_math/vector_math_64.dart'
+    show Matrix3, Quaternion, Vector3;
 
 void main() {
   const size = Size(400, 400);
@@ -105,6 +106,45 @@ void main() {
     final angled = CubeScene.build(state: state, view: defaultView, size: size);
     for (final p in angled.where((p) => p.sticker != null)) {
       expect(CubeScene.stickerAt(angled, p.centroid), p.faceletIndex);
+    }
+  });
+
+  test('face labels sit on the visible centers', () {
+    final labels = [
+      for (final p in CubeScene.build(
+        state: CubeState.solved(),
+        view: defaultView,
+        size: size,
+      ))
+        if (p.label != null) (p.faceletIndex!, p.label!.face),
+    ];
+    expect(labels, unorderedEquals([(4, Face.u), (22, Face.f), (13, Face.r)]));
+  });
+
+  test('face labels are never mirrored and read upright from any angle', () {
+    final random = math.Random(8);
+    for (var n = 0; n < 300; n++) {
+      final view = Quaternion.axisAngle(
+        Vector3(
+          random.nextDouble() - 0.5,
+          random.nextDouble() - 0.5,
+          random.nextDouble() - 0.5,
+        )..normalize(),
+        random.nextDouble() * 2 * math.pi,
+      ).asRotationMatrix();
+      final polygons = CubeScene.build(
+        state: CubeState.solved(),
+        view: view,
+        size: size,
+      );
+      for (final label in polygons.map((p) => p.label).nonNulls) {
+        double det(FaceLabel l) =>
+            l.right.dx * l.down.dy - l.right.dy * l.down.dx;
+        expect(det(label), greaterThan(0), reason: 'mirrored ${label.face}');
+        final upright = label.upright;
+        expect(det(upright), closeTo(det(label), 1e-6));
+        expect(upright.down.dy, greaterThan(0), reason: '${label.face}');
+      }
     }
   });
 }

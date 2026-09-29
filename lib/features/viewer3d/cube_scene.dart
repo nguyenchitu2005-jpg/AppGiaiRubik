@@ -30,6 +30,44 @@ class LayerTurn {
   int get hashCode => Object.hash(layer, angle);
 }
 
+/// Where to print a face's name: an affine frame lying on the face's center
+/// sticker, oriented like the unfolded net (so text is never mirrored).
+class FaceLabel {
+  const FaceLabel({
+    required this.face,
+    required this.origin,
+    required this.right,
+    required this.down,
+  });
+
+  /// The face position this label names (U = whatever is on top now).
+  final Face face;
+
+  /// Projected center of the center sticker.
+  final Offset origin;
+
+  /// Screen vector for one cubie-width towards the face's right.
+  final Offset right;
+
+  /// Screen vector for one cubie-width towards the face's bottom.
+  final Offset down;
+
+  /// The same frame turned in the face plane by a multiple of 90° so its
+  /// text reads upright on screen. Turning (never flipping) keeps the text
+  /// from being mirrored.
+  FaceLabel get upright {
+    var best = this;
+    var r = right, d = down;
+    for (var i = 0; i < 3; i++) {
+      (r, d) = (d, -r);
+      if (d.dy / d.distance > best.down.dy / best.down.distance) {
+        best = FaceLabel(face: face, origin: origin, right: r, down: d);
+      }
+    }
+    return best;
+  }
+}
+
 /// A projected polygon ready to be filled, in back-to-front order.
 class ScenePolygon {
   const ScenePolygon({
@@ -37,6 +75,7 @@ class ScenePolygon {
     required this.shade,
     this.sticker,
     this.faceletIndex,
+    this.label,
   });
 
   final List<Offset> points;
@@ -48,6 +87,9 @@ class ScenePolygon {
   final Face? sticker;
 
   final int? faceletIndex;
+
+  /// Set on center stickers: where to print the face name.
+  final FaceLabel? label;
 
   Offset get centroid {
     var sum = Offset.zero;
@@ -102,6 +144,17 @@ abstract final class CubeScene {
     }
     return points;
   }();
+
+  /// (right, up) directions of each face as drawn in the unfolded net.
+  static final Map<Face, (IVec3, IVec3)> _faceAxes = {
+    for (final face in Face.values)
+      face: (
+        FaceletGeometry.position(face.offset + 5) -
+            FaceletGeometry.position(face.offset + 4),
+        FaceletGeometry.position(face.offset + 1) -
+            FaceletGeometry.position(face.offset + 4),
+      ),
+  };
 
   static final List<IVec3> _cubies = [
     for (var x = -1; x <= 1; x++)
@@ -168,6 +221,14 @@ abstract final class CubeScene {
                 shade: shade,
                 sticker: state[index],
                 faceletIndex: index,
+                label: index % 9 == 4
+                    ? _label(
+                        Face.values[index ~/ 9],
+                        center,
+                        transform,
+                        project,
+                      )
+                    : null,
               ),
             );
           }
@@ -175,6 +236,22 @@ abstract final class CubeScene {
       }
     }
     return polygons;
+  }
+
+  static FaceLabel _label(
+    Face face,
+    Vector3 center,
+    Matrix3 transform,
+    Offset Function(Vector3) project,
+  ) {
+    final (right, up) = _faceAxes[face]!;
+    final origin = project(center);
+    return FaceLabel(
+      face: face,
+      origin: origin,
+      right: project(center + transform.transformed(_vec(right))) - origin,
+      down: project(center - transform.transformed(_vec(up))) - origin,
+    );
   }
 
   /// Facelet index of the topmost sticker under [point], or null if the
