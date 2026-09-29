@@ -88,6 +88,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final controller = ref.read(cubeSessionProvider.notifier);
     final solved = session.cube.isSolved;
     final theme = Theme.of(context);
+    final cubeSize = (MediaQuery.sizeOf(context).height * 0.32).clamp(
+      180.0,
+      320.0,
+    );
 
     return Scaffold(
       body: DecoratedBox(
@@ -101,145 +105,199 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+              child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Rubik Solver',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+                  // Pinned: the cube stays in view while the buttons below
+                  // scroll, so every turn can be watched.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Rubik Solver',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                solved
+                                    ? 'Khối đã được giải'
+                                    : 'Khối đang bị xáo trộn',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: solved
+                                      ? Colors.green.shade700
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'Thư viện công thức',
-                        onPressed: () =>
-                            Navigator.of(context)
-                                .pushNamed(AlgorithmLibraryScreen.routeName),
-                        icon: const Icon(Icons.menu_book),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    session.cube.isSolved
-                        ? 'Khối đã được giải'
-                        : 'Khối đang bị xáo trộn',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: session.cube.isSolved
-                          ? Colors.green.shade700
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
-                      child: AnimatedCubeView(
-                        controller: _animator,
-                        onReorient: _reorient,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    'Kéo để xoay khối',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CubeNetView(
-                    state: session.cube,
-                    showFaceLabels: ref.watch(faceLabelsProvider),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: controller.scramble,
-                          icon: const Icon(Icons.shuffle),
-                          label: const Text('Xáo trộn'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: controller.reset,
-                          icon: const Icon(Icons.restart_alt),
-                          label: const Text('Đặt lại'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
+                        IconButton(
+                          tooltip: 'Thư viện công thức',
                           onPressed: () =>
                               Navigator.of(context)
-                                  .pushNamed(NetEditorScreen.routeName),
-                          icon: const Icon(Icons.edit),
-                          label: const Text('Nhập màu'),
+                                  .pushNamed(AlgorithmLibraryScreen.routeName),
+                          icon: const Icon(Icons.menu_book),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(ScanScreen.routeName),
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Quét khối bằng camera'),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: solved
-                              ? null
-                              : () => _openGuide(session.cube, SolveMode.learn),
-                          icon: Icon(SolveMode.learn.icon),
-                          label: const Text('Học cách giải'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton.tonalIcon(
-                          onPressed: solved
-                              ? null
-                              : () => _openGuide(session.cube, SolveMode.quick),
-                          icon: Icon(SolveMode.quick.icon),
-                          label: const Text('Giải nhanh'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const SpeedSelector(),
-                  const SizedBox(height: 12),
-                  _MovePad(onMove: _turn),
-                  if (session.scramble.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _NotationCard(
-                      title: 'Chuỗi xáo trộn',
-                      moves: session.scramble,
+                      ],
                     ),
-                  ],
-                  if (session.moves.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _NotationCard(
-                      title: 'Các bước đã xoay',
-                      moves: session.moves,
+                  ),
+                  SizedBox(
+                    height: cubeSize,
+                    child: Center(
+                      child: SizedBox(
+                        width: cubeSize,
+                        child: AnimatedCubeView(
+                          controller: _animator,
+                          onReorient: _reorient,
+                        ),
+                      ),
                     ),
-                  ],
+                  ),
+                  _RecentMoves(moves: session.moves),
+                  const Divider(height: 12),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      children: [
+                        _MovePad(onMove: _turn),
+                        const SizedBox(height: 8),
+                        const SpeedSelector(),
+                        const SizedBox(height: 16),
+                        CubeNetView(
+                          state: session.cube,
+                          showFaceLabels: ref.watch(faceLabelsProvider),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: controller.scramble,
+                                icon: const Icon(Icons.shuffle),
+                                label: const Text('Xáo trộn'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: controller.reset,
+                                icon: const Icon(Icons.restart_alt),
+                                label: const Text('Đặt lại'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () =>
+                                    Navigator.of(context)
+                                        .pushNamed(NetEditorScreen.routeName),
+                                icon: const Icon(Icons.edit),
+                                label: const Text('Nhập màu'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.of(context)
+                                  .pushNamed(ScanScreen.routeName),
+                          icon: const Icon(Icons.camera_alt),
+                          label: const Text('Quét khối bằng camera'),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: solved
+                                    ? null
+                                    : () => _openGuide(
+                                        session.cube,
+                                        SolveMode.learn,
+                                      ),
+                                icon: Icon(SolveMode.learn.icon),
+                                label: const Text('Học cách giải'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: FilledButton.tonalIcon(
+                                onPressed: solved
+                                    ? null
+                                    : () => _openGuide(
+                                        session.cube,
+                                        SolveMode.quick,
+                                      ),
+                                icon: Icon(SolveMode.quick.icon),
+                                label: const Text('Giải nhanh'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (session.scramble.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _NotationCard(
+                            title: 'Chuỗi xáo trộn',
+                            moves: session.scramble,
+                          ),
+                        ],
+                        if (session.moves.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _NotationCard(
+                            title: 'Các bước đã xoay',
+                            moves: session.moves,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The last few moves under the pinned cube, or how to use it.
+class _RecentMoves extends StatelessWidget {
+  const _RecentMoves({required this.moves});
+
+  final List<Move> moves;
+
+  static const _shown = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (moves.isEmpty) {
+      return Text(
+        'Kéo để xoay khối, bấm chữ bên dưới để xoay mặt',
+        textAlign: TextAlign.center,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+    final recent = moves.length > _shown
+        ? '… ${Move.format(moves.sublist(moves.length - _shown))}'
+        : Move.format(moves);
+    return Text(
+      recent,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontFamily: 'monospace',
+        color: theme.colorScheme.primary,
       ),
     );
   }

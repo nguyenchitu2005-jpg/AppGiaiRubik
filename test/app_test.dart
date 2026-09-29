@@ -332,4 +332,33 @@ void main() {
     expect(turned.center(Face.r), Face.f);
     expect(turned, cube.applyAlgorithm('R'));
   });
+
+  testWidgets('phone screen: the cube stays in view next to the move pad', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(412 * 3, 915 * 3)
+      ..devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const ProviderScope(child: RubikApp()));
+    await tester.pumpAndSettle();
+
+    const screen = Rect.fromLTWH(0, 0, 412, 915);
+    bool onScreen(Finder f) => screen.contains(tester.getRect(f).center);
+    final cube = find.byType(CubeView);
+    final r = find.widgetWithText(OutlinedButton, 'R');
+    expect(onScreen(cube) && onScreen(r), isTrue);
+
+    await tester.tap(r);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(painter(tester).turn, isNotNull, reason: 'turning in view');
+    await tester.pumpAndSettle();
+    expect(find.text('R'), findsWidgets);
+
+    // Scrolling the buttons leaves the cube where it is.
+    final before = tester.getRect(cube);
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(cube), before);
+  });
 }
