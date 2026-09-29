@@ -36,7 +36,7 @@ class CubieCube {
 
   /// Reads the pieces from a sticker state whose centers are on their home
   /// faces. Throws [InvalidCubeException] if a sticker combination does not
-  /// match any real corner or edge.
+  /// match any real corner or edge. Use [CubeValidator] for friendly errors.
   factory CubieCube.fromState(CubeState state) {
     for (final face in Face.values) {
       if (state.center(face) != face) {
@@ -47,42 +47,52 @@ class CubieCube {
     }
     final cp = List.filled(8, 0), co = List.filled(8, 0);
     for (var i = 0; i < 8; i++) {
-      final slot = cornerFacelets[i];
-      var ori = 0;
-      while (ori < 3 &&
-          state[slot[ori]] != Face.u &&
-          state[slot[ori]] != Face.d) {
-        ori++;
+      final corner = identifyCorner(state, i);
+      if (corner == null) {
+        throw InvalidCubeException('Góc ${Corner.values[i].name} không hợp lệ');
       }
-      if (ori == 3) {
-        throw InvalidCubeException(
-          'Góc ${Corner.values[i].name.toUpperCase()} không có màu trắng hoặc vàng',
-        );
-      }
-      final c1 = state[slot[(ori + 1) % 3]], c2 = state[slot[(ori + 2) % 3]];
-      final piece = cornerColors.indexWhere((c) => c[1] == c1 && c[2] == c2);
-      if (piece < 0) {
-        throw InvalidCubeException(
-          'Góc ${Corner.values[i].name.toUpperCase()} có tổ hợp màu không tồn tại',
-        );
-      }
-      cp[i] = piece;
-      co[i] = ori;
+      cp[i] = corner.$1;
+      co[i] = corner.$2;
     }
     final ep = List.filled(12, 0), eo = List.filled(12, 0);
     for (var i = 0; i < 12; i++) {
-      final a = state[edgeFacelets[i][0]], b = state[edgeFacelets[i][1]];
-      final straight = edgeColors.indexWhere((c) => c[0] == a && c[1] == b);
-      final flipped = edgeColors.indexWhere((c) => c[0] == b && c[1] == a);
-      if (straight < 0 && flipped < 0) {
-        throw InvalidCubeException(
-          'Cạnh ${Edge.values[i].name.toUpperCase()} có tổ hợp màu không tồn tại',
-        );
+      final edge = identifyEdge(state, i);
+      if (edge == null) {
+        throw InvalidCubeException('Cạnh ${Edge.values[i].name} không hợp lệ');
       }
-      ep[i] = straight >= 0 ? straight : flipped;
-      eo[i] = straight >= 0 ? 0 : 1;
+      ep[i] = edge.$1;
+      eo[i] = edge.$2;
     }
     return CubieCube(cp: cp, co: co, ep: ep, eo: eo);
+  }
+
+  /// Which corner piece sits in [slot] and its twist, or null if the three
+  /// stickers there do not form a real corner.
+  static (int piece, int twist)? identifyCorner(CubeState state, int slot) {
+    final facelets = cornerFacelets[slot];
+    final twist = facelets.indexWhere(
+      (i) => state[i] == Face.u || state[i] == Face.d,
+    );
+    if (twist < 0) return null;
+    final first = state[facelets[twist]];
+    final c1 = state[facelets[(twist + 1) % 3]];
+    final c2 = state[facelets[(twist + 2) % 3]];
+    final piece = cornerColors.indexWhere(
+      (c) => c[0] == first && c[1] == c1 && c[2] == c2,
+    );
+    return piece < 0 ? null : (piece, twist);
+  }
+
+  /// Which edge piece sits in [slot] and whether it is flipped, or null if
+  /// the two stickers there do not form a real edge.
+  static (int piece, int flip)? identifyEdge(CubeState state, int slot) {
+    final a = state[edgeFacelets[slot][0]], b = state[edgeFacelets[slot][1]];
+    for (var piece = 0; piece < 12; piece++) {
+      final c = edgeColors[piece];
+      if (c[0] == a && c[1] == b) return (piece, 0);
+      if (c[0] == b && c[1] == a) return (piece, 1);
+    }
+    return null;
   }
 
   /// Corner permutation: `cp[slot]` is the corner piece in that slot.

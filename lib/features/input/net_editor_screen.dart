@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/cube/cube_state.dart';
+import '../../core/cube/cube_validator.dart';
 import '../../core/cube/face.dart';
 import '../../shared/cube_palette.dart';
 import '../../shared/widgets/cube_net_view.dart';
@@ -41,6 +42,33 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
   }
 
   void _finish() {
+    final validation = CubeValidator.validate(_cube);
+    if (!validation.isValid) {
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Khối chưa hợp lệ'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final issue in validation.issues)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('• ${issue.message}'),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Sửa lại'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     ref.read(cubeSessionProvider.notifier).setCube(_cube);
     Navigator.of(context).pop();
   }
@@ -135,7 +163,7 @@ class _BrushChip extends StatelessWidget {
     final theme = Theme.of(context);
     final ok = count == 9;
     return Tooltip(
-      message: CubePalette.names[face]!,
+      message: face.colorName,
       child: InkWell(
         key: ValueKey('brush-${face.letter}'),
         onTap: onTap,

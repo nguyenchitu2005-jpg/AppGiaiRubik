@@ -67,6 +67,15 @@ enum Face {
 
   Face get opposite => Face.values[(index + 3) % 6];
 
+  /// Vietnamese name of this face's color in the standard scheme
+  /// (white top, green front).
+  String get colorName =>
+      const ['Trắng', 'Đỏ', 'Xanh lá', 'Vàng', 'Cam', 'Xanh dương'][index];
+
+  /// Vietnamese name of the face position: trên, phải, trước, …
+  String get positionName =>
+      const ['trên', 'phải', 'trước', 'dưới', 'trái', 'sau'][index];
+
   static Face fromLetter(String letter) => Face.values.firstWhere(
     (f) => f.letter == letter.toUpperCase(),
     orElse: () => throw FormatException('Mặt không hợp lệ: $letter'),

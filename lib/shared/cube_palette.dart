@@ -15,14 +15,5 @@ abstract final class CubePalette {
     Face.b: Color(0xFF1F5FFF), // xanh dương
   };
 
-  static const Map<Face, String> names = {
-    Face.u: 'Trắng',
-    Face.r: 'Đỏ',
-    Face.f: 'Xanh lá',
-    Face.d: 'Vàng',
-    Face.l: 'Cam',
-    Face.b: 'Xanh dương',
-  };
-
   static Color of(Face face) => standard[face]!;
 }

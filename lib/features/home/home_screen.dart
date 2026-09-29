@@ -7,6 +7,7 @@ import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
 import '../../state/settings.dart';
 import '../input/net_editor_screen.dart';
+import '../solve/solution_screen.dart';
 import '../viewer3d/cube_animation_controller.dart';
 import '../viewer3d/cube_view.dart';
 
@@ -167,6 +168,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    onPressed: session.cube.isSolved
+                        ? null
+                        : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  SolutionScreen(start: session.cube),
+                            ),
+                          ),
+                    icon: const Icon(Icons.bolt),
+                    label: const Text('Giải nhanh (~20 bước)'),
                   ),
                   const SizedBox(height: 12),
                   _MovePad(onMove: _turn),

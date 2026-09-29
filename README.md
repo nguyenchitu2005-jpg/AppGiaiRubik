@@ -13,7 +13,7 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 | 1 | Phần lõi xử lý khối (54 ô màu, phép xoay, biểu diễn góc/cạnh) | Xong |
 | 2 | Vẽ khối 3D bằng `CustomPainter` | Xong |
 | 3 | Animation xoay tầng và sơ đồ 2D để nhập màu | Xong |
-| 4 | Kiểm tra khối hợp lệ và chế độ Giải nhanh (Kociemba) | |
+| 4 | Kiểm tra khối hợp lệ và chế độ Giải nhanh (Kociemba) | Xong |
 | 5–6 | Chế độ Học (phương pháp tầng) | |
 | 7 | Màn hình hướng dẫn giải và thư viện công thức | |
 | 8–9 | Quét camera và nhận diện màu | |
@@ -31,10 +31,12 @@ flutter test         # chạy toàn bộ test
 
 ```
 lib/
-  core/cube/          phần lõi: trạng thái khối, phép xoay, xáo trộn
+  core/cube/          phần lõi: trạng thái khối, phép xoay, xáo trộn, kiểm tra hợp lệ
+  core/solver/        bộ giải (Kociemba qua package cuber)
   features/viewer3d/  vẽ khối 3D
   features/home/      màn hình chính
   features/input/     màn hình nhập màu (tô trên sơ đồ 2D hoặc khối 3D)
+  features/solve/     màn hình lời giải (phát từng bước trên khối 3D)
   shared/             bảng màu và widget dùng chung (sơ đồ 2D)
   state/              quản lý trạng thái (Riverpod)
 test/                 unit test và widget test

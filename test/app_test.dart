@@ -89,12 +89,93 @@ void main() {
     expect(find.text('9/9'), findsNWidgets(6));
     expect(tester.widget<FilledButton>(finish).onPressed, isNotNull);
 
+    // U1 and R1 belong to different corners, so this cube is impossible.
+    await tester.ensureVisible(finish);
+    await tester.tap(finish);
+    await tester.pumpAndSettle();
+    expect(find.text('Khối chưa hợp lệ'), findsOneWidget);
+    await tester.tap(find.text('Sửa lại'));
+    await tester.pumpAndSettle();
+
+    // Start over and twist URF clockwise and UFL counter-clockwise: valid.
+    await tester.tap(find.text('Khối đã giải'));
+    for (final (brush, sticker) in [
+      ('F', 8), ('U', 9), ('R', 20), //
+      ('F', 6), ('L', 18), ('U', 38),
+    ]) {
+      await tester.tap(find.byKey(ValueKey('brush-$brush')));
+      await tester.tap(find.byKey(ValueKey('sticker-$sticker')));
+    }
+    await tester.pump();
     await tester.ensureVisible(finish);
     await tester.tap(finish);
     await tester.pumpAndSettle();
     expect(find.text('Khối đang bị xáo trộn'), findsOneWidget);
     final edited = painter(tester).state;
-    expect(edited[0], Face.r);
-    expect(edited[9], Face.u);
+    expect([edited[8], edited[9], edited[20]], [Face.f, Face.u, Face.r]);
+  });
+
+  testWidgets('editor: impossible cubes are explained, not accepted', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Nhập màu'));
+    await tester.pumpAndSettle();
+
+    // Twist the URF corner in place: counts stay 9 each.
+    for (final (brush, sticker) in [('F', 8), ('U', 9), ('R', 20)]) {
+      await tester.tap(find.byKey(ValueKey('brush-$brush')));
+      await tester.tap(find.byKey(ValueKey('sticker-$sticker')));
+    }
+    await tester.pump();
+    final finish = find.widgetWithText(FilledButton, 'Dùng trạng thái này');
+    await tester.ensureVisible(finish);
+    await tester.tap(finish);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Khối chưa hợp lệ'), findsOneWidget);
+    expect(find.textContaining('góc bị vặn lệch'), findsOneWidget);
+    await tester.tap(find.text('Sửa lại'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nhập màu khối'), findsOneWidget);
+  });
+
+  testWidgets('quick solve: find, step, autoplay, finish', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Xáo trộn'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Giải nhanh (~20 bước)'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Đang tìm lời giải…'), findsOneWidget);
+
+    // The solver runs on a real isolate: let real time pass.
+    for (
+      var i = 0;
+      i < 100 && find.textContaining('Bước ').evaluate().isEmpty;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+    }
+    expect(find.textContaining(RegExp(r'^Bước 1/\d+$')), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Bước tiếp'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(RegExp(r'^Bước 2/\d+$')), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Tự chạy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hoàn thành! Khối đã được giải.'), findsOneWidget);
+    expect(painter(tester).state.isSolved, isTrue);
+
+    final finish = find.text('Hoàn tất');
+    await tester.ensureVisible(finish);
+    await tester.tap(finish);
+    await tester.pumpAndSettle();
+    expect(find.text('Khối đã được giải'), findsOneWidget);
   });
 }
