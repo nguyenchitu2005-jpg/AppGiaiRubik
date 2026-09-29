@@ -13,10 +13,16 @@ void main() {
   const size = Size(400, 400);
   final defaultView = CubeScene.defaultOrientation().asRotationMatrix();
 
-  List<ScenePolygon> stickers(CubeState state, Matrix3 view, [LayerTurn? turn]) =>
-      CubeScene.build(state: state, view: view, size: size, turn: turn)
-          .where((p) => p.sticker != null)
-          .toList();
+  List<ScenePolygon> stickers(
+    CubeState state,
+    Matrix3 view, [
+    LayerTurn? turn,
+  ]) => CubeScene.build(
+    state: state,
+    view: view,
+    size: size,
+    turn: turn,
+  ).where((p) => p.sticker != null).toList();
 
   test('looking straight at F shows exactly the 9 front stickers', () {
     final visible = stickers(CubeState.solved(), Matrix3.identity());
@@ -43,17 +49,30 @@ void main() {
   });
 
   test('a full animated turn lands exactly on the engine result', () {
-    final state = CubeState.solved().applyAll(Scrambler(math.Random(9)).generate());
+    final state = CubeState.solved().applyAll(
+      Scrambler(math.Random(9)).generate(),
+    );
     for (final layer in MoveLayer.values) {
       for (final turns in [1, 2, 3]) {
         final move = Move(layer, turns);
-        final animated = stickers(state, defaultView, LayerTurn.forMove(move, 1));
+        final animated = stickers(
+          state,
+          defaultView,
+          LayerTurn.forMove(move, 1),
+        );
         final expected = stickers(state.apply(move), defaultView);
         expect(animated, hasLength(expected.length), reason: move.notation);
         for (final p in expected) {
-          final match = animated.where((a) =>
-              a.sticker == p.sticker && (a.centroid - p.centroid).distance < 0.5);
-          expect(match, isNotEmpty, reason: '${move.notation} at ${p.centroid}');
+          final match = animated.where(
+            (a) =>
+                a.sticker == p.sticker &&
+                (a.centroid - p.centroid).distance < 0.5,
+          );
+          expect(
+            match,
+            isNotEmpty,
+            reason: '${move.notation} at ${p.centroid}',
+          );
         }
       }
     }
@@ -63,11 +82,29 @@ void main() {
     final state = CubeState.solved();
     final idle = CubeScene.build(state: state, view: defaultView, size: size);
     final midTurn = CubeScene.build(
-        state: state,
-        view: defaultView,
-        size: size,
-        turn: LayerTurn.forMove(Move.parse('U'), 0.5));
-    int bodies(List<ScenePolygon> ps) => ps.where((p) => p.sticker == null).length;
+      state: state,
+      view: defaultView,
+      size: size,
+      turn: LayerTurn.forMove(Move.parse('U'), 0.5),
+    );
+    int bodies(List<ScenePolygon> ps) =>
+        ps.where((p) => p.sticker == null).length;
     expect(bodies(midTurn), greaterThan(bodies(idle)));
+  });
+
+  test('stickerAt finds the tapped sticker and ignores the body', () {
+    final state = CubeState.solved();
+    final front = CubeScene.build(
+      state: state,
+      view: Matrix3.identity(),
+      size: size,
+    );
+    expect(CubeScene.stickerAt(front, size.center(Offset.zero)), 22); // F5
+    expect(CubeScene.stickerAt(front, const Offset(2, 2)), isNull);
+
+    final angled = CubeScene.build(state: state, view: defaultView, size: size);
+    for (final p in angled.where((p) => p.sticker != null)) {
+      expect(CubeScene.stickerAt(angled, p.centroid), p.faceletIndex);
+    }
   });
 }

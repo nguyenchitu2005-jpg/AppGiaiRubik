@@ -177,6 +177,27 @@ abstract final class CubeScene {
     return polygons;
   }
 
+  /// Facelet index of the topmost sticker under [point], or null if the
+  /// point hits the black body or misses the cube.
+  static int? stickerAt(List<ScenePolygon> polygons, Offset point) {
+    for (final polygon in polygons.reversed) {
+      if (_polygonContains(polygon.points, point)) return polygon.faceletIndex;
+    }
+    return null;
+  }
+
+  static bool _polygonContains(List<Offset> points, Offset p) {
+    var inside = false;
+    for (var i = 0, j = points.length - 1; i < points.length; j = i++) {
+      final a = points[i], b = points[j];
+      if ((a.dy > p.dy) != (b.dy > p.dy) &&
+          p.dx < (b.dx - a.dx) * (p.dy - a.dy) / (b.dy - a.dy) + a.dx) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
   static List<_Group> _groups(Matrix3 view, LayerTurn? turn) {
     if (turn == null) return [_Group(_cubies, Matrix3.identity())];
 

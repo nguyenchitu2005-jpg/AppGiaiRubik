@@ -8,7 +8,10 @@ import 'package:rubik_solver/core/cube/scrambler.dart';
 
 void main() {
   test('corner and edge sticker tables agree with 3D geometry', () {
-    for (final slot in [...CubieCube.cornerFacelets, ...CubieCube.edgeFacelets]) {
+    for (final slot in [
+      ...CubieCube.cornerFacelets,
+      ...CubieCube.edgeFacelets,
+    ]) {
       final positions = {for (final i in slot) FaceletGeometry.position(i)};
       expect(positions, hasLength(1), reason: '$slot');
     }
@@ -26,15 +29,37 @@ void main() {
 
   test('R matches the Kociemba cubie definition', () {
     final r = CubieCube.fromState(CubeState.solved().applyAlgorithm('R'));
-    expect(r.cp, [
-      Corner.dfr, Corner.ufl, Corner.ulb, Corner.urf,
-      Corner.drb, Corner.dlf, Corner.dbl, Corner.ubr,
-    ].map((c) => c.index));
+    expect(
+      r.cp,
+      [
+        Corner.dfr,
+        Corner.ufl,
+        Corner.ulb,
+        Corner.urf,
+        Corner.drb,
+        Corner.dlf,
+        Corner.dbl,
+        Corner.ubr,
+      ].map((c) => c.index),
+    );
     expect(r.co, [2, 0, 0, 1, 1, 0, 0, 2]);
-    expect(r.ep, [
-      Edge.fr, Edge.uf, Edge.ul, Edge.ub, Edge.br, Edge.df,
-      Edge.dl, Edge.db, Edge.dr, Edge.fl, Edge.bl, Edge.ur,
-    ].map((e) => e.index));
+    expect(
+      r.ep,
+      [
+        Edge.fr,
+        Edge.uf,
+        Edge.ul,
+        Edge.ub,
+        Edge.br,
+        Edge.df,
+        Edge.dl,
+        Edge.db,
+        Edge.dr,
+        Edge.fl,
+        Edge.bl,
+        Edge.ur,
+      ].map((e) => e.index),
+    );
     expect(r.eo, List.filled(12, 0));
   });
 
@@ -57,12 +82,16 @@ void main() {
   test('rejects impossible sticker combinations', () {
     final chars = CubeState.solved().toFaceletString().split('');
     chars[8] = 'R'; // URF corner now shows R twice
-    expect(() => CubieCube.fromState(CubeState.fromFaceletString(chars.join())),
-        throwsA(isA<InvalidCubeException>()));
+    expect(
+      () => CubieCube.fromState(CubeState.fromFaceletString(chars.join())),
+      throwsA(isA<InvalidCubeException>()),
+    );
   });
 
   test('requires centers on their home faces', () {
-    expect(() => CubieCube.fromState(CubeState.solved().applyAlgorithm('y')),
-        throwsA(isA<InvalidCubeException>()));
+    expect(
+      () => CubieCube.fromState(CubeState.solved().applyAlgorithm('y')),
+      throwsA(isA<InvalidCubeException>()),
+    );
   });
 }

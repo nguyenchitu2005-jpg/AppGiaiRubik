@@ -9,8 +9,9 @@ class Scrambler {
 
   final Random _random;
 
-  static final List<MoveLayer> _faces =
-      MoveLayer.values.where((l) => l.isFaceTurn).toList();
+  static final List<MoveLayer> _faces = MoveLayer.values
+      .where((l) => l.isFaceTurn)
+      .toList();
 
   List<Move> generate([int length = 25]) {
     final moves = <Move>[];

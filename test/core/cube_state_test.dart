@@ -11,27 +11,42 @@ void main() {
 
   test('solved cube is solved and has the standard facelet string', () {
     expect(solved.isSolved, isTrue);
-    expect(solved.toFaceletString(),
-        'UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB');
+    expect(
+      solved.toFaceletString(),
+      'UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB',
+    );
   });
 
   test('R and U match the reference Kociemba facelet strings', () {
-    expect(solved.applyAlgorithm('R').toFaceletString(),
-        'UUFUUFUUFRRRRRRRRRFFDFFDFFDDDBDDBDDBLLLLLLLLLUBBUBBUBB');
-    expect(solved.applyAlgorithm('U').toFaceletString(),
-        'UUUUUUUUUBBBRRRRRRRRRFFFFFFDDDDDDDDDFFFLLLLLLLLLBBBBBB');
+    expect(
+      solved.applyAlgorithm('R').toFaceletString(),
+      'UUFUUFUUFRRRRRRRRRFFDFFDFFDDDBDDBDDBLLLLLLLLLUBBUBBUBB',
+    );
+    expect(
+      solved.applyAlgorithm('U').toFaceletString(),
+      'UUUUUUUUUBBBRRRRRRRRRFFFFFFDDDDDDDDDFFFLLLLLLLLLBBBBBB',
+    );
   });
 
   test('four quarter turns of any layer restore the cube', () {
     final scrambled = solved.applyAll(Scrambler(Random(1)).generate());
     for (final layer in MoveLayer.values) {
       final move = Move(layer);
-      expect(scrambled.applyAll([move, move, move, move]), scrambled,
-          reason: layer.symbol);
-      expect(scrambled.apply(move).apply(move), scrambled.apply(Move(layer, 2)),
-          reason: '${layer.symbol}2');
-      expect(scrambled.apply(move).apply(move.inverse), scrambled,
-          reason: "${layer.symbol}'");
+      expect(
+        scrambled.applyAll([move, move, move, move]),
+        scrambled,
+        reason: layer.symbol,
+      );
+      expect(
+        scrambled.apply(move).apply(move),
+        scrambled.apply(Move(layer, 2)),
+        reason: '${layer.symbol}2',
+      );
+      expect(
+        scrambled.apply(move).apply(move.inverse),
+        scrambled,
+        reason: "${layer.symbol}'",
+      );
     }
   });
 

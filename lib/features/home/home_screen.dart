@@ -1,19 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/cube/cube_state.dart';
 import '../../core/cube/move.dart';
 import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
+import '../../state/settings.dart';
+import '../input/net_editor_screen.dart';
+import '../viewer3d/cube_animation_controller.dart';
 import '../viewer3d/cube_view.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   static const routeName = '/';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  /// Scrambles replay quickly from the solved cube.
+  static const _scrambleTurn = Duration(milliseconds: 70);
+
+  late final CubeAnimationController _animator = CubeAnimationController(
+    vsync: this,
+    initial: ref.read(cubeSessionProvider).cube,
+    quarterTurn: ref.read(animationSpeedProvider).quarterTurn,
+  );
+
+  @override
+  void dispose() {
+    _animator.dispose();
+    super.dispose();
+  }
+
+  void _onSessionChanged(CubeSession? previous, CubeSession next) {
+    final newScramble =
+        previous != null &&
+        next.scramble.isNotEmpty &&
+        !identical(previous.scramble, next.scramble);
+    if (newScramble) {
+      _animator
+        ..jumpTo(CubeState.solved())
+        ..enqueueAll(next.scramble, quarterTurn: _scrambleTurn);
+    } else {
+      _animator.syncTo(next.cube);
+    }
+  }
+
+  void _turn(Move move) {
+    // Queue the animation first so the session change below is already
+    // accounted for and does not cause a jump.
+    _animator.enqueue(move);
+    ref.read(cubeSessionProvider.notifier).applyMove(move);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(cubeSessionProvider, _onSessionChanged);
+    ref.listen(
+      animationSpeedProvider,
+      (_, speed) => _animator.quarterTurn = speed.quarterTurn,
+    );
+
     final session = ref.watch(cubeSessionProvider);
+    final speed = ref.watch(animationSpeedProvider);
     final controller = ref.read(cubeSessionProvider.notifier);
     final theme = Theme.of(context);
 
@@ -32,12 +85,17 @@ class HomeScreen extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Text('Rubik Solver',
-                      style: theme.textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    'Rubik Solver',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
-                    session.cube.isSolved ? 'Khối đã được giải' : 'Khối đang bị xáo trộn',
+                    session.cube.isSolved
+                        ? 'Khối đã được giải'
+                        : 'Khối đang bị xáo trộn',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: session.cube.isSolved
                           ? Colors.green.shade700
@@ -48,42 +106,83 @@ class HomeScreen extends ConsumerWidget {
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 320),
-                      child: CubeView(state: session.cube),
+                      child: AnimatedCubeView(controller: _animator),
                     ),
                   ),
-                  Text('Kéo để xoay khối',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  Text(
+                    'Kéo để xoay khối',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   CubeNetView(state: session.cube),
                   const SizedBox(height: 16),
-                  Row(children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: controller.scramble,
-                        icon: const Icon(Icons.shuffle),
-                        label: const Text('Xáo trộn'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: controller.scramble,
+                          icon: const Icon(Icons.shuffle),
+                          label: const Text('Xáo trộn'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: controller.reset,
-                        icon: const Icon(Icons.restart_alt),
-                        label: const Text('Đặt lại'),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: controller.reset,
+                          icon: const Icon(Icons.restart_alt),
+                          label: const Text('Đặt lại'),
+                        ),
                       ),
-                    ),
-                  ]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.of(context)
+                                  .pushNamed(NetEditorScreen.routeName),
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Nhập màu'),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
-                  _MovePad(onMove: controller.applyMove),
+                  Row(
+                    children: [
+                      Text('Tốc độ xoay', style: theme.textTheme.titleSmall),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SegmentedButton<AnimationSpeed>(
+                          showSelectedIcon: false,
+                          segments: [
+                            for (final s in AnimationSpeed.values)
+                              ButtonSegment(value: s, label: Text(s.label)),
+                          ],
+                          selected: {speed},
+                          onSelectionChanged: (s) => ref
+                              .read(animationSpeedProvider.notifier)
+                              .set(s.single),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _MovePad(onMove: _turn),
                   if (session.scramble.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    _NotationCard(title: 'Chuỗi xáo trộn', moves: session.scramble),
+                    _NotationCard(
+                      title: 'Chuỗi xáo trộn',
+                      moves: session.scramble,
+                    ),
                   ],
                   if (session.moves.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    _NotationCard(title: 'Các bước đã xoay', moves: session.moves),
+                    _NotationCard(
+                      title: 'Các bước đã xoay',
+                      moves: session.moves,
+                    ),
                   ],
                 ],
               ),
@@ -113,22 +212,26 @@ class _MovePad extends StatelessWidget {
             for (final turns in const [1, 3, 2])
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [
-                  for (final move in Move.faceMoves.where((m) => m.turns == turns))
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(0, 40),
+                child: Row(
+                  children: [
+                    for (final move in Move.faceMoves.where(
+                      (m) => m.turns == turns,
+                    ))
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 40),
+                            ),
+                            onPressed: () => onMove(move),
+                            child: Text(move.notation),
                           ),
-                          onPressed: () => onMove(move),
-                          child: Text(move.notation),
                         ),
                       ),
-                    ),
-                ]),
+                  ],
+                ),
               ),
           ],
         ),
@@ -152,10 +255,17 @@ class _NotationCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$title (${moves.length} bước)', style: theme.textTheme.titleSmall),
+            Text(
+              '$title (${moves.length} bước)',
+              style: theme.textTheme.titleSmall,
+            ),
             const SizedBox(height: 6),
-            SelectableText(Move.format(moves),
-                style: theme.textTheme.bodyLarge?.copyWith(fontFamily: 'monospace')),
+            SelectableText(
+              Move.format(moves),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontFamily: 'monospace',
+              ),
+            ),
           ],
         ),
       ),

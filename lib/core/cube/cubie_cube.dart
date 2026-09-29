@@ -22,17 +22,17 @@ class CubieCube {
     required List<int> co,
     required List<int> ep,
     required List<int> eo,
-  })  : cp = List.unmodifiable(cp),
-        co = List.unmodifiable(co),
-        ep = List.unmodifiable(ep),
-        eo = List.unmodifiable(eo);
+  }) : cp = List.unmodifiable(cp),
+       co = List.unmodifiable(co),
+       ep = List.unmodifiable(ep),
+       eo = List.unmodifiable(eo);
 
   factory CubieCube.solved() => CubieCube(
-        cp: List.generate(8, (i) => i),
-        co: List.filled(8, 0),
-        ep: List.generate(12, (i) => i),
-        eo: List.filled(12, 0),
-      );
+    cp: List.generate(8, (i) => i),
+    co: List.filled(8, 0),
+    ep: List.generate(12, (i) => i),
+    eo: List.filled(12, 0),
+  );
 
   /// Reads the pieces from a sticker state whose centers are on their home
   /// faces. Throws [InvalidCubeException] if a sticker combination does not
@@ -41,7 +41,8 @@ class CubieCube {
     for (final face in Face.values) {
       if (state.center(face) != face) {
         throw const InvalidCubeException(
-            'Ô tâm không ở đúng vị trí, cần chuẩn hoá hướng khối trước');
+          'Ô tâm không ở đúng vị trí, cần chuẩn hoá hướng khối trước',
+        );
       }
     }
     final cp = List.filled(8, 0), co = List.filled(8, 0);
@@ -55,13 +56,15 @@ class CubieCube {
       }
       if (ori == 3) {
         throw InvalidCubeException(
-            'Góc ${Corner.values[i].name.toUpperCase()} không có màu trắng hoặc vàng');
+          'Góc ${Corner.values[i].name.toUpperCase()} không có màu trắng hoặc vàng',
+        );
       }
       final c1 = state[slot[(ori + 1) % 3]], c2 = state[slot[(ori + 2) % 3]];
       final piece = cornerColors.indexWhere((c) => c[1] == c1 && c[2] == c2);
       if (piece < 0) {
         throw InvalidCubeException(
-            'Góc ${Corner.values[i].name.toUpperCase()} có tổ hợp màu không tồn tại');
+          'Góc ${Corner.values[i].name.toUpperCase()} có tổ hợp màu không tồn tại',
+        );
       }
       cp[i] = piece;
       co[i] = ori;
@@ -73,7 +76,8 @@ class CubieCube {
       final flipped = edgeColors.indexWhere((c) => c[0] == b && c[1] == a);
       if (straight < 0 && flipped < 0) {
         throw InvalidCubeException(
-            'Cạnh ${Edge.values[i].name.toUpperCase()} có tổ hợp màu không tồn tại');
+          'Cạnh ${Edge.values[i].name.toUpperCase()} có tổ hợp màu không tồn tại',
+        );
       }
       ep[i] = straight >= 0 ? straight : flipped;
       eo[i] = straight >= 0 ? 0 : 1;
@@ -172,7 +176,11 @@ class CubieCube {
 
   @override
   int get hashCode => Object.hash(
-      Object.hashAll(cp), Object.hashAll(co), Object.hashAll(ep), Object.hashAll(eo));
+    Object.hashAll(cp),
+    Object.hashAll(co),
+    Object.hashAll(ep),
+    Object.hashAll(eo),
+  );
 
   @override
   String toString() => 'CubieCube(cp: $cp, co: $co, ep: $ep, eo: $eo)';

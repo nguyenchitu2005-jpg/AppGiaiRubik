@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'features/home/home_screen.dart';
+import 'features/input/net_editor_screen.dart';
 
 class RubikApp extends StatelessWidget {
   const RubikApp({super.key});
@@ -17,6 +18,7 @@ class RubikApp extends StatelessWidget {
       initialRoute: HomeScreen.routeName,
       routes: {
         HomeScreen.routeName: (_) => const HomeScreen(),
+        NetEditorScreen.routeName: (_) => const NetEditorScreen(),
       },
     );
   }

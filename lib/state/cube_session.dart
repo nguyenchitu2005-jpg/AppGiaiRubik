@@ -6,7 +6,11 @@ import '../core/cube/scrambler.dart';
 
 /// The cube the user is currently working with, plus how it got there.
 class CubeSession {
-  const CubeSession({required this.cube, this.scramble = const [], this.moves = const []});
+  const CubeSession({
+    required this.cube,
+    this.scramble = const [],
+    this.moves = const [],
+  });
 
   final CubeState cube;
 
@@ -22,18 +26,26 @@ class CubeSessionController extends Notifier<CubeSession> {
   CubeSession build() => CubeSession(cube: CubeState.solved());
 
   void applyMove(Move move) => state = CubeSession(
-        cube: state.cube.apply(move),
-        scramble: state.scramble,
-        moves: [...state.moves, move],
-      );
+    cube: state.cube.apply(move),
+    scramble: state.scramble,
+    moves: [...state.moves, move],
+  );
 
   void scramble() {
     final scramble = Scrambler().generate();
-    state = CubeSession(cube: CubeState.solved().applyAll(scramble), scramble: scramble);
+    state = CubeSession(
+      cube: CubeState.solved().applyAll(scramble),
+      scramble: scramble,
+    );
   }
 
   void reset() => state = CubeSession(cube: CubeState.solved());
+
+  /// Replaces the cube with one entered by the user (editor or scanner).
+  void setCube(CubeState cube) => state = CubeSession(cube: cube);
 }
 
 final cubeSessionProvider =
-    NotifierProvider<CubeSessionController, CubeSession>(CubeSessionController.new);
+    NotifierProvider<CubeSessionController, CubeSession>(
+      CubeSessionController.new,
+    );

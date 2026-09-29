@@ -51,7 +51,7 @@ enum MoveLayer {
 /// A single move in standard notation, e.g. `R`, `U'`, `F2`.
 class Move {
   const Move(this.layer, [this.turns = 1])
-      : assert(turns >= 1 && turns <= 3, 'turns must be 1, 2 or 3');
+    : assert(turns >= 1 && turns <= 3, 'turns must be 1, 2 or 3');
 
   final MoveLayer layer;
 
@@ -98,8 +98,9 @@ class Move {
   static String format(Iterable<Move> moves) =>
       moves.map((m) => m.notation).join(' ');
 
-  static List<Move> invertSequence(List<Move> moves) =>
-      [for (final m in moves.reversed) m.inverse];
+  static List<Move> invertSequence(List<Move> moves) => [
+    for (final m in moves.reversed) m.inverse,
+  ];
 
   @override
   bool operator ==(Object other) =>

@@ -11,14 +11,21 @@ void main() {
       .whereType<CubePainter>()
       .single;
 
-  testWidgets('dragging rotates the view instead of scrolling the page', (tester) async {
+  testWidgets('dragging rotates the view instead of scrolling the page', (
+    tester,
+  ) async {
     final scroll = ScrollController();
-    await tester.pumpWidget(MaterialApp(
-      home: ListView(controller: scroll, children: [
-        SizedBox(width: 300, child: CubeView(state: CubeState.solved())),
-        const SizedBox(height: 2000),
-      ]),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ListView(
+          controller: scroll,
+          children: [
+            SizedBox(width: 300, child: CubeView(state: CubeState.solved())),
+            const SizedBox(height: 2000),
+          ],
+        ),
+      ),
+    );
 
     final before = painterOf(tester).view;
     await tester.drag(find.byType(CubeView), const Offset(0, -150));

@@ -30,23 +30,30 @@ class CubeNetView extends StatelessWidget {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 4 / 3,
-      child: LayoutBuilder(builder: (context, constraints) {
-        final cell = constraints.maxWidth / 4;
-        return Stack(children: [
-          for (final (face, row, col) in _layout)
-            Positioned(
-              left: col * cell,
-              top: row * cell,
-              width: cell,
-              height: cell,
-              child: Padding(
-                padding: EdgeInsets.all(cell * 0.03),
-                child: _FaceTile(
-                    state: state, face: face, onStickerTap: onStickerTap),
-              ),
-            ),
-        ]);
-      }),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cell = constraints.maxWidth / 4;
+          return Stack(
+            children: [
+              for (final (face, row, col) in _layout)
+                Positioned(
+                  left: col * cell,
+                  top: row * cell,
+                  width: cell,
+                  height: cell,
+                  child: Padding(
+                    padding: EdgeInsets.all(cell * 0.03),
+                    child: _FaceTile(
+                      state: state,
+                      face: face,
+                      onStickerTap: onStickerTap,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -60,28 +67,40 @@ class _FaceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final size = constraints.maxWidth;
-      final gap = size * 0.05;
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          color: CubePalette.body,
-          borderRadius: BorderRadius.circular(size * 0.07),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(gap),
-          child: Column(children: [
-            for (var row = 0; row < 3; row++)
-              Expanded(
-                child: Row(children: [
-                  for (var col = 0; col < 3; col++)
-                    Expanded(child: _sticker(faceletIndex(face, row, col), gap, size)),
-                ]),
-              ),
-          ]),
-        ),
-      );
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.maxWidth;
+        final gap = size * 0.05;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: CubePalette.body,
+            borderRadius: BorderRadius.circular(size * 0.07),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(gap),
+            child: Column(
+              children: [
+                for (var row = 0; row < 3; row++)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        for (var col = 0; col < 3; col++)
+                          Expanded(
+                            child: _sticker(
+                              faceletIndex(face, row, col),
+                              gap,
+                              size,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _sticker(int index, double gap, double size) {
@@ -93,6 +112,10 @@ class _FaceTile extends StatelessWidget {
       ),
     );
     if (onStickerTap == null) return sticker;
-    return GestureDetector(onTap: () => onStickerTap!(index), child: sticker);
+    return GestureDetector(
+      key: ValueKey('sticker-$index'),
+      onTap: () => onStickerTap!(index),
+      child: sticker,
+    );
   }
 }

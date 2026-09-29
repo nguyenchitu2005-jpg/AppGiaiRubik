@@ -28,7 +28,8 @@ class IVec3 {
 
   /// Rotates this vector a quarter turn clockwise, as seen from the tip of
   /// the unit [axis] looking back at the origin (i.e. -90° about [axis]).
-  IVec3 rotatedClockwise(IVec3 axis) => -axis.cross(this) + axis * axis.dot(this);
+  IVec3 rotatedClockwise(IVec3 axis) =>
+      -axis.cross(this) + axis * axis.dot(this);
 
   @override
   bool operator ==(Object other) =>
@@ -67,9 +68,9 @@ enum Face {
   Face get opposite => Face.values[(index + 3) % 6];
 
   static Face fromLetter(String letter) => Face.values.firstWhere(
-        (f) => f.letter == letter.toUpperCase(),
-        orElse: () => throw FormatException('Mặt không hợp lệ: $letter'),
-      );
+    (f) => f.letter == letter.toUpperCase(),
+    orElse: () => throw FormatException('Mặt không hợp lệ: $letter'),
+  );
 }
 
 /// Index of a sticker in the 54-sticker facelet string.
@@ -109,11 +110,11 @@ abstract final class FaceletGeometry {
   }
 
   static IVec3 _position(Face face, int row, int col) => switch (face) {
-        Face.u => IVec3(col - 1, 1, row - 1),
-        Face.r => IVec3(1, 1 - row, 1 - col),
-        Face.f => IVec3(col - 1, 1 - row, 1),
-        Face.d => IVec3(col - 1, -1, 1 - row),
-        Face.l => IVec3(-1, 1 - row, col - 1),
-        Face.b => IVec3(1 - col, 1 - row, -1),
-      };
+    Face.u => IVec3(col - 1, 1, row - 1),
+    Face.r => IVec3(1, 1 - row, 1 - col),
+    Face.f => IVec3(col - 1, 1 - row, 1),
+    Face.d => IVec3(col - 1, -1, 1 - row),
+    Face.l => IVec3(-1, 1 - row, col - 1),
+    Face.b => IVec3(1 - col, 1 - row, -1),
+  };
 }

@@ -38,7 +38,9 @@ void main() {
         expect(moves[i].layer, isNot(moves[i - 1].layer));
         expect(moves[i].layer.isFaceTurn, isTrue);
         if (i >= 2) {
-          final axes = {for (var k = i - 2; k <= i; k++) moves[k].layer.face.axis};
+          final axes = {
+            for (var k = i - 2; k <= i; k++) moves[k].layer.face.axis,
+          };
           expect(axes.length, greaterThan(1), reason: Move.format(moves));
         }
       }

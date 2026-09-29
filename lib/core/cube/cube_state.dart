@@ -25,15 +25,17 @@ class CubeState {
     if (facelets.length != 54) {
       throw FormatException('Cần đúng 54 ký tự, nhận được ${facelets.length}');
     }
-    return CubeState.fromFacelets(
-        [for (final c in facelets.split('')) Face.fromLetter(c)]);
+    return CubeState.fromFacelets([
+      for (final c in facelets.split('')) Face.fromLetter(c),
+    ]);
   }
 
   final Uint8List _facelets;
 
   Face operator [](int index) => Face.values[_facelets[index]];
 
-  Face sticker(Face face, int row, int col) => this[faceletIndex(face, row, col)];
+  Face sticker(Face face, int row, int col) =>
+      this[faceletIndex(face, row, col)];
 
   Face center(Face face) => this[face.offset + 4];
 
@@ -47,6 +49,22 @@ class CubeState {
       next[i] = _facelets[source[i]];
     }
     return CubeState._(next);
+  }
+
+  /// Copy with sticker [index] recolored to [face].
+  CubeState withSticker(int index, Face face) {
+    final next = Uint8List.fromList(_facelets);
+    next[index] = face.index;
+    return CubeState._(next);
+  }
+
+  /// How many stickers show each color.
+  Map<Face, int> get colorCounts {
+    final counts = {for (final f in Face.values) f: 0};
+    for (final i in _facelets) {
+      counts[Face.values[i]] = counts[Face.values[i]]! + 1;
+    }
+    return counts;
   }
 
   CubeState applyAll(Iterable<Move> moves) =>
@@ -78,7 +96,8 @@ class CubeState {
       throw StateError('Các ô tâm bị trùng màu');
     }
     return CubeState._(
-        Uint8List.fromList([for (final i in _facelets) homeOf[i]]));
+      Uint8List.fromList([for (final i in _facelets) homeOf[i]]),
+    );
   }
 
   String toFaceletString() =>
