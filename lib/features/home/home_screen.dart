@@ -9,6 +9,7 @@ import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
 import '../../state/settings.dart';
 import '../input/net_editor_screen.dart';
+import '../../shared/platform_support.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../guide/guide_screen.dart';
 import '../library/algorithm_library_screen.dart';
@@ -108,8 +109,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   // Share the height: 3D cube, then the flat net, then the
                   // scrolling buttons (move pad first).
                   final height = constraints.maxHeight;
-                  final cubeSize = (height * 0.30).clamp(150.0, 300.0);
-                  final netHeight = (height * 0.22).clamp(100.0, 240.0);
+                  final cubeSize = (height * 0.30).clamp(90.0, 300.0);
+                  final netHeight = (height * 0.22).clamp(60.0, 240.0);
                   final netWidth = math.min(
                     netHeight * 4 / 3,
                     constraints.maxWidth - 32,
@@ -212,14 +213,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  Navigator.of(context)
-                                      .pushNamed(ScanScreen.routeName),
-                              icon: const Icon(Icons.camera_alt),
-                              label: const Text('Quét khối bằng camera'),
-                            ),
+                            if (ref.watch(cameraScanSupportedProvider)) ...[
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: () =>
+                                    Navigator.of(context)
+                                        .pushNamed(ScanScreen.routeName),
+                                icon: const Icon(Icons.camera_alt),
+                                label: const Text('Quét khối bằng camera'),
+                              ),
+                            ],
                             const SizedBox(height: 16),
                             Row(
                               children: [

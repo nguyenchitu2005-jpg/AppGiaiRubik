@@ -8,17 +8,24 @@ import 'package:rubik_solver/features/input/net_editor_screen.dart';
 import 'package:rubik_solver/features/viewer3d/cube_painter.dart';
 import 'package:rubik_solver/features/viewer3d/cube_scene.dart';
 import 'package:rubik_solver/features/viewer3d/cube_view.dart';
+import 'package:rubik_solver/shared/platform_support.dart';
 import 'package:rubik_solver/shared/widgets/cube_net_view.dart';
 
 void main() {
   final solved = CubeState.solved();
 
-  Future<void> pumpApp(WidgetTester tester) async {
+  /// [phone]: pretend to run on Android/iOS, where camera scanning exists.
+  Future<void> pumpApp(WidgetTester tester, {bool phone = false}) async {
     tester.view
       ..physicalSize = const Size(1080, 2400)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(const ProviderScope(child: RubikApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [cameraScanSupportedProvider.overrideWithValue(phone)],
+        child: const RubikApp(),
+      ),
+    );
   }
 
   CubePainter painter(WidgetTester tester) => tester
@@ -268,10 +275,18 @@ void main() {
     }
   });
 
-  testWidgets('scanner: without a camera it offers manual entry', (
+  testWidgets('desktop: no camera scanning, manual entry remains', (
     tester,
   ) async {
     await pumpApp(tester);
+    expect(find.text('Quét khối bằng camera'), findsNothing);
+    expect(find.text('Nhập màu'), findsOneWidget);
+  });
+
+  testWidgets('scanner: without a camera it offers manual entry', (
+    tester,
+  ) async {
+    await pumpApp(tester, phone: true);
     await tester.tap(find.text('Quét khối bằng camera'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));

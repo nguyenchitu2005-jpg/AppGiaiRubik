@@ -39,6 +39,28 @@ void main() {
       _paintDogBadge(canvas, cubeFraction: 0.78);
     });
 
+    // macOS and Windows show icons as drawn: a rounded tile with a margin
+    // and a soft shadow, like other desktop app icons.
+    await _save('icon_rounded.png', (canvas) {
+      const tile = Rect.fromLTWH(100, 92, 824, 824);
+      final shape = RRect.fromRectAndRadius(tile, const Radius.circular(185));
+      canvas
+        ..drawRRect(
+          shape.shift(const Offset(0, 12)),
+          Paint()
+            ..color = const Color(0x55000000)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
+        )
+        ..save()
+        ..clipRRect(shape)
+        ..translate(tile.left, tile.top)
+        ..scale(tile.width / _size);
+      _paintBackground(canvas);
+      _paintCube(canvas, cubeFraction: 0.78, shadow: true);
+      _paintDogBadge(canvas, cubeFraction: 0.78);
+      canvas.restore();
+    });
+
     // Adaptive icon: the launcher masks it, so the cube must stay inside
     // the central safe zone: a circle 66 of 108 dp across.
     await _save('icon_background.png', _paintBackground);

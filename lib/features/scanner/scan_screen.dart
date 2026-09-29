@@ -5,6 +5,7 @@ import '../../core/cube/face.dart';
 import '../../core/vision/scan_assembler.dart';
 import '../../core/vision/yuv_image.dart';
 import '../../shared/cube_palette.dart';
+import '../../shared/platform_support.dart';
 import '../input/net_editor_screen.dart';
 import 'scan_controller.dart';
 
@@ -39,6 +40,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    AppOrientation.lockPortrait();
     WidgetsBinding.instance.addObserver(this);
     _scan.addListener(_onScanChanged);
     _openCamera();
@@ -46,6 +48,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    AppOrientation.applyDefault();
     WidgetsBinding.instance.removeObserver(this);
     _scan
       ..removeListener(_onScanChanged)

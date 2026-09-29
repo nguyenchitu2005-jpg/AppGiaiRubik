@@ -98,10 +98,18 @@ flutter:
 #             dart run flutter_launcher_icons
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
+  remove_alpha_ios: true
   image_path: "assets/icon/icon.png"
   adaptive_icon_background: "assets/icon/icon_background.png"
   adaptive_icon_foreground: "assets/icon/icon_foreground.png"
   adaptive_icon_monochrome: "assets/icon/icon_monochrome.png"
   # The foreground images already keep the cube inside the safe zone.
   adaptive_icon_foreground_inset: 0
+  windows:
+    generate: true
+    image_path: "assets/icon/icon_rounded.png"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/icon/icon_rounded.png"
