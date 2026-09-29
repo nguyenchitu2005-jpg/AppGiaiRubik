@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rubik_solver/core/cube/cube_state.dart';
+import 'package:rubik_solver/core/cube/face.dart';
+import 'package:rubik_solver/core/cube/move.dart';
 import 'package:rubik_solver/features/viewer3d/cube_painter.dart';
 import 'package:rubik_solver/features/viewer3d/cube_view.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix3;
@@ -69,7 +71,7 @@ void main() {
     expect(painterOf(tester).showFaceLabels, isTrue);
   });
 
-  testWidgets('after a drag the cube eases back to an upright pose', (
+  testWidgets('without re-holding, the cube eases back to the default pose', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -84,22 +86,50 @@ void main() {
     );
     final start = painterOf(tester).view;
 
-    // A short drag is undone.
-    await tester.drag(find.byType(CubeView), const Offset(40, 10));
+    await tester.drag(find.byType(CubeView), const Offset(150, 0));
     await tester.pump(const Duration(milliseconds: 50));
-    expect(painterOf(tester).view, isNot(start), reason: 'still easing');
+    expect(maxDiff(painterOf(tester).view, start), greaterThan(0.1));
     await tester.pumpAndSettle();
     expect(maxDiff(painterOf(tester).view, start), lessThan(1e-6));
+  });
 
-    // A long horizontal drag shows another face, still upright.
+  testWidgets('re-holding: the face turned to the front becomes F', (
+    tester,
+  ) async {
+    var cube = CubeState.solved();
+    final reported = <List<Move>>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) => SizedBox(
+              width: 300,
+              child: CubeView(
+                state: cube,
+                onReorient: (rotation) => setState(() {
+                  reported.add(rotation);
+                  cube = cube.applyAll(rotation);
+                }),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final start = painterOf(tester).view;
+
+    // A short drag changes nothing.
+    await tester.drag(find.byType(CubeView), const Offset(40, 10));
+    await tester.pumpAndSettle();
+    expect(reported, isEmpty);
+
+    // Dragging right brings the left face (orange) to the front.
     await tester.drag(find.byType(CubeView), const Offset(150, 0));
     await tester.pumpAndSettle();
-    final view = painterOf(tester).view;
-    expect(maxDiff(view, start), greaterThan(0.5));
-    final relative = start.transposed().multiplied(view);
-    for (final v in relative.storage) {
-      expect(v.abs() < 1e-6 || (v.abs() - 1).abs() < 1e-6, isTrue);
-    }
+    expect(reported, hasLength(1));
+    expect(maxDiff(painterOf(tester).view, start), lessThan(1e-6));
+    expect(cube.center(Face.f), Face.l);
+    expect(cube.center(Face.u), Face.u, reason: 'still upright');
   });
 }
 

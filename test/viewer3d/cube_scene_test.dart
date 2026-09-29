@@ -243,6 +243,46 @@ void main() {
       expect(m.transformed(Vector3(-1, 0, 0)).z, closeTo(1, 1e-9));
     });
 
+    test('re-holding the cube looks exactly like the snapped pose', () {
+      final state = CubeState.solved().applyAll(
+        Scrambler(math.Random(6)).generate(),
+      );
+      final random = math.Random(13);
+      final seen = <String>{};
+      for (var n = 0; n < 300; n++) {
+        final snapped = CubeScene.snapOrientation(
+          Quaternion.axisAngle(
+            Vector3(
+              random.nextDouble() - 0.5,
+              random.nextDouble() - 0.5,
+              random.nextDouble() - 0.5,
+            )..normalize(),
+            random.nextDouble() * 2 * math.pi,
+          ),
+        );
+        final rotation = CubeScene.rotationFor(snapped);
+        expect(rotation.length, lessThanOrEqualTo(2));
+        expect(rotation.every((m) => !m.layer.isFaceTurn), isTrue);
+        seen.add(Move.format(rotation));
+
+        final before = stickers(state, snapped.asRotationMatrix());
+        final after = stickers(state.applyAll(rotation), defaultView);
+        expect(after, hasLength(before.length));
+        for (final p in before) {
+          expect(
+            after.where(
+              (a) =>
+                  a.sticker == p.sticker &&
+                  (a.centroid - p.centroid).distance < 0.01,
+            ),
+            isNotEmpty,
+            reason: Move.format(rotation),
+          );
+        }
+      }
+      expect(seen, hasLength(24));
+    });
+
     test('always lands on one of the 24 upright poses, showing 3 faces', () {
       final random = math.Random(12);
       final poses = <String>{};

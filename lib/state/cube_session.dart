@@ -31,6 +31,14 @@ class CubeSessionController extends Notifier<CubeSession> {
     moves: [...state.moves, move],
   );
 
+  /// Applies several moves at once, e.g. the whole-cube turns that re-hold
+  /// the cube after the user turned it to look at another face.
+  void applyMoves(List<Move> moves) => state = CubeSession(
+    cube: state.cube.applyAll(moves),
+    scramble: state.scramble,
+    moves: [...state.moves, ...moves],
+  );
+
   void scramble() {
     final scramble = Scrambler().generate();
     state = CubeSession(

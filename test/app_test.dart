@@ -312,4 +312,24 @@ void main() {
     expect(find.text('Đã tự xoay lại mặt tâm trắng.'), findsOneWidget);
     expect(painter(tester).state, scanned);
   });
+
+  testWidgets('home: turning the 3D cube re-holds it and labels follow', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.drag(find.byType(CubeView), const Offset(150, 0));
+    await tester.pumpAndSettle();
+
+    final cube = painter(tester).state;
+    expect(cube.isSolved, isTrue);
+    expect(cube.center(Face.f), Face.l, reason: 'orange is now in front');
+    expect(find.textContaining('Các bước đã xoay (1 bước)'), findsOneWidget);
+
+    // The R button now turns the face on the right as seen (green).
+    await tester.tap(find.widgetWithText(OutlinedButton, 'R'));
+    await tester.pumpAndSettle();
+    final turned = painter(tester).state;
+    expect(turned.center(Face.r), Face.f);
+    expect(turned, cube.applyAlgorithm('R'));
+  });
 }

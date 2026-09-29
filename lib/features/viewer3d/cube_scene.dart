@@ -142,6 +142,70 @@ abstract final class CubeScene {
     return rotations;
   }();
 
+  /// Whole-cube turns (x, y, z) that, applied to the cube, show it the way
+  /// the upright pose [snapped] (from [snapOrientation]) shows it from the
+  /// default view. Empty for the default pose itself.
+  static List<Move> rotationFor(Quaternion snapped) {
+    final relative = defaultOrientation()
+        .asRotationMatrix()
+        .transposed()
+        .multiplied(snapped.asRotationMatrix());
+    return _rotationMoves[_matrixKey((row, col) => relative.entry(row, col))]!;
+  }
+
+  /// The shortest x/y/z sequence for each of the 24 poses, keyed by its
+  /// rotation matrix (as rounded entries).
+  static final Map<String, List<Move>> _rotationMoves = () {
+    final wholeCube = [
+      for (final layer in [MoveLayer.x, MoveLayer.y, MoveLayer.z])
+        for (var t = 1; t <= 3; t++) Move(layer, t),
+    ];
+    // Where each axis goes: columns of the rotation matrix.
+    List<IVec3> apply(List<IVec3> axes, Move move) => [
+      for (final v in axes) _turnWholeCube(v, move),
+    ];
+    String key(List<IVec3> axes) => _matrixKey((row, col) {
+      final v = axes[col];
+      return (row == 0
+              ? v.x
+              : row == 1
+              ? v.y
+              : v.z)
+          .toDouble();
+    });
+
+    const identity = [IVec3(1, 0, 0), IVec3(0, 1, 0), IVec3(0, 0, 1)];
+    final result = <String, List<Move>>{key(identity): const []};
+    var frontier = [(identity, const <Move>[])];
+    while (result.length < 24) {
+      final next = <(List<IVec3>, List<Move>)>[];
+      for (final (axes, moves) in frontier) {
+        for (final move in wholeCube) {
+          final turned = apply(axes, move);
+          final k = key(turned);
+          if (result.containsKey(k)) continue;
+          result[k] = [...moves, move];
+          next.add((turned, result[k]!));
+        }
+      }
+      frontier = next;
+    }
+    return result;
+  }();
+
+  static IVec3 _turnWholeCube(IVec3 v, Move move) {
+    var result = v;
+    for (var t = 0; t < move.turns; t++) {
+      result = result.rotatedClockwise(move.layer.face.normal);
+    }
+    return result;
+  }
+
+  static String _matrixKey(double Function(int row, int col) entry) => [
+    for (var row = 0; row < 3; row++)
+      for (var col = 0; col < 3; col++) entry(row, col).round(),
+  ].join(',');
+
   /// The upright pose closest to [orientation]: the default three-quarter
   /// view, with the cube held in whichever of its 24 orientations the user
   /// has turned it closest to.

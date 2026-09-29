@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/cube/cube_state.dart';
 import '../../core/cube/cube_validator.dart';
 import '../../core/cube/face.dart';
+import '../../core/cube/move.dart';
 import '../../shared/cube_palette.dart';
 import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
@@ -50,6 +51,15 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
       _cube = next;
     });
   }
+
+  /// The user turned the cube to look at another face: re-hold it (the
+  /// undo history too, so undoing never flips the cube back).
+  void _reorient(List<Move> rotation) => setState(() {
+    _cube = _cube.applyAll(rotation);
+    for (final stack in [_undo, _redo]) {
+      stack.setAll(0, [for (final s in stack) s.applyAll(rotation)]);
+    }
+  });
 
   void _undoEdit() => setState(() {
     _redo.add(_cube);
@@ -159,7 +169,11 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 260),
-                  child: CubeView(state: _cube, onStickerTap: _paint),
+                  child: CubeView(
+                    state: _cube,
+                    onStickerTap: _paint,
+                    onReorient: _reorient,
+                  ),
                 ),
               ),
               CubeNetView(

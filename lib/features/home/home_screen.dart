@@ -61,6 +61,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.read(cubeSessionProvider.notifier).applyMove(move);
   }
 
+  /// The user turned the cube to look at another face: re-hold it so that
+  /// face is F. The view already shows it, so jump instead of animating.
+  void _reorient(List<Move> rotation) {
+    _animator.jumpTo(_animator.finalState.applyAll(rotation));
+    ref.read(cubeSessionProvider.notifier).applyMoves(rotation);
+  }
+
   void _openGuide(CubeState start, SolveMode mode) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -131,7 +138,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 320),
-                      child: AnimatedCubeView(controller: _animator),
+                      child: AnimatedCubeView(
+                        controller: _animator,
+                        onReorient: _reorient,
+                      ),
                     ),
                   ),
                   Text(

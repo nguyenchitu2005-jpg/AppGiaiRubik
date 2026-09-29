@@ -22,6 +22,7 @@ class CubeView extends ConsumerStatefulWidget {
     this.onStickerTap,
     this.hint,
     this.focus,
+    this.onReorient,
   });
 
   final CubeState state;
@@ -34,6 +35,13 @@ class CubeView extends ConsumerStatefulWidget {
 
   /// Colors of a piece to outline.
   final Set<Face>? focus;
+
+  /// If set, turning the cube to show another face re-holds it: after the
+  /// drag the cube eases to the nearest upright pose, then this is called
+  /// with the whole-cube turns (x/y/z) to apply to [state] so that the
+  /// face in front becomes F and the top face U. If null, the cube eases
+  /// back to the default pose, keeping the way it is held.
+  final ValueChanged<List<Move>>? onReorient;
 
   /// Called with the facelet index of a tapped sticker.
   final ValueChanged<int>? onStickerTap;
@@ -91,9 +99,20 @@ class _CubeViewState extends ConsumerState<CubeView>
     final down = _downPosition;
     _downPosition = null;
     if (_dragDistance > kTouchSlop) {
+      final onReorient = widget.onReorient;
       _snapFrom = _orientation;
-      _snapTo = CubeScene.snapOrientation(_orientation);
-      _snap.forward(from: 0);
+      _snapTo = onReorient == null
+          ? CubeScene.defaultOrientation()
+          : CubeScene.snapOrientation(_orientation);
+      final target = _snapTo;
+      _snap.forward(from: 0).then((_) {
+        if (!mounted || onReorient == null) return;
+        final rotation = CubeScene.rotationFor(target);
+        if (rotation.isEmpty) return;
+        // Same picture, now with the turned cube seen from the default view.
+        onReorient(rotation);
+        setState(() => _orientation = CubeScene.defaultOrientation());
+      });
       return;
     }
     final onTap = widget.onStickerTap;
@@ -196,11 +215,15 @@ class AnimatedCubeView extends StatelessWidget {
     required this.controller,
     this.hint,
     this.focus,
+    this.onReorient,
   });
 
   final CubeAnimationController controller;
   final Move? hint;
   final Set<Face>? focus;
+
+  /// See [CubeView.onReorient].
+  final ValueChanged<List<Move>>? onReorient;
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +234,7 @@ class AnimatedCubeView extends StatelessWidget {
         turn: controller.turn,
         hint: controller.isAnimating ? null : hint,
         focus: focus,
+        onReorient: onReorient,
       ),
     );
   }
