@@ -29,7 +29,8 @@ _Cập nhật: 29/09/2026_
 | Nền tảng | Trạng thái |
 |---|---|
 | Android | ✅ Chạy trên điện thoại thật (OPPO CPH2797, Android 16) |
-| Windows | ✅ Build bản release và chạy được. Không có quét camera, vẫn nhập màu tay |
+| Windows | ✅ Build bản release và chạy được. Không có quét camera, vẫn nhập màu tay. **Từ khi thêm âm thanh cần bật Developer Mode** (Settings → System → For developers) thì mới build được, do plugin âm thanh cần symlink |
+| Web (Chrome) | ✅ Build bản release, Giải nhanh và Học cách giải chạy tới cuối trên Chrome. Web không có isolate nên bộ giải chạy trên luồng giao diện (Giải nhanh ~0,4 s). Không có quét camera |
 | iOS | ⏸ Đã có cấu hình (quyền camera, tên app, icon), **chưa build thử** vì cần máy Mac |
 | macOS | ⏸ Đã có cấu hình (tên app, cửa sổ, icon), **chưa build thử** vì cần máy Mac. Không có quét camera |
 
@@ -38,6 +39,7 @@ _Cập nhật: 29/09/2026_
 |---|---|
 | Logo mới (khối 3D, nền xanh–tím) và huy hiệu chú chó | `9d8d90b`, `1e8b92d` |
 | Chạy đa nền tảng: Android, iOS, Windows, macOS | `e9d8c74` |
+| Sửa Học cách giải/Giải nhanh bị lỗi trên web; âm thanh khi xoay và khi xáo trộn, có nút bật/tắt | (commit này) |
 | Ký hiệu mặt (U·Trên, F·Trước…) trên khối 3D, luôn đứng thẳng, có nút bật/tắt | `4dbec53` |
 | Nút hoàn tác/làm lại ở màn hình nhập màu. Khối tự về tư thế đứng thẳng sau khi xoay | `36a5956` |
 | Ký hiệu mặt trên sơ đồ 2D | `6568574` |

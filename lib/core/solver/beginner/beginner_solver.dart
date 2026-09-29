@@ -1,5 +1,4 @@
-import 'dart:isolate';
-
+import '../../concurrency/background.dart';
 import '../../cube/cube_state.dart';
 import '../../cube/cube_validator.dart';
 import '../../cube/cubie_cube.dart';
@@ -19,10 +18,10 @@ import 'edge_search.dart';
 /// breaking what is already solved, so every case is handled and every step
 /// is verified by simulation.
 abstract final class BeginnerSolver {
-  /// Solves [state] on a background isolate.
+  /// Solves [state] in the background.
   static Future<List<SolveStep>> solve(CubeState state) {
     _validate(state);
-    return Isolate.run(() => solveSync(state));
+    return runInBackground(() => solveSync(state));
   }
 
   static List<SolveStep> solveSync(CubeState state) {

@@ -9,6 +9,7 @@ import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
 import '../../state/settings.dart';
 import '../input/net_editor_screen.dart';
+import '../../shared/cube_sounds.dart';
 import '../../shared/platform_support.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../guide/guide_screen.dart';
@@ -49,9 +50,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         next.scramble.isNotEmpty &&
         !identical(previous.scramble, next.scramble);
     if (newScramble) {
+      ref.playScrambleSound();
       _animator
         ..jumpTo(CubeState.solved())
-        ..enqueueAll(next.scramble, quarterTurn: _scrambleTurn);
+        ..enqueueAll(next.scramble, quarterTurn: _scrambleTurn, quiet: true);
     } else {
       _animator.syncTo(next.cube);
     }

@@ -36,3 +36,15 @@ class FaceLabelsController extends Notifier<bool> {
 final faceLabelsProvider = NotifierProvider<FaceLabelsController, bool>(
   FaceLabelsController.new,
 );
+
+/// Whether turns and scrambles make a sound.
+class SoundEnabledController extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void toggle() => state = !state;
+}
+
+final soundEnabledProvider = NotifierProvider<SoundEnabledController, bool>(
+  SoundEnabledController.new,
+);

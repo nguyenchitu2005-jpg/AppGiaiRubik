@@ -26,6 +26,7 @@ class CubeAnimationController extends ChangeNotifier {
 
   final AnimationController _animation;
   final Queue<_QueuedMove> _queue = Queue();
+  final List<ValueChanged<Move>> _moveStartListeners = [];
 
   /// Duration of a quarter turn; half turns take 1.5×.
   Duration quarterTurn;
@@ -53,16 +54,29 @@ class CubeAnimationController extends ChangeNotifier {
 
   /// Queues [move]. [quarterTurn] overrides the speed for this move only.
   void enqueue(Move move, {Duration? quarterTurn}) {
-    _queue.add(_QueuedMove(move, quarterTurn));
+    _queue.add(_QueuedMove(move, quarterTurn, quiet: false));
     if (_current == null) _startNext();
   }
 
-  void enqueueAll(Iterable<Move> moves, {Duration? quarterTurn}) {
+  /// Queues [moves]. When [quiet], move start listeners are not called for
+  /// them (a scramble plays one sound of its own instead of a click a move).
+  void enqueueAll(
+    Iterable<Move> moves, {
+    Duration? quarterTurn,
+    bool quiet = false,
+  }) {
     for (final move in moves) {
-      _queue.add(_QueuedMove(move, quarterTurn));
+      _queue.add(_QueuedMove(move, quarterTurn, quiet: quiet));
     }
     if (_current == null) _startNext();
   }
+
+  /// Calls [listener] as each move starts animating (e.g. to play a sound).
+  void addMoveStartListener(ValueChanged<Move> listener) =>
+      _moveStartListeners.add(listener);
+
+  void removeMoveStartListener(ValueChanged<Move> listener) =>
+      _moveStartListeners.remove(listener);
 
   /// Drops any pending animation and shows [state] immediately.
   void jumpTo(CubeState state) {
@@ -88,6 +102,10 @@ class CubeAnimationController extends ChangeNotifier {
     final base = next.quarterTurn ?? quarterTurn;
     _animation.duration = next.move.isDouble ? base * 1.5 : base;
     _animation.forward(from: 0);
+    if (next.quiet) return;
+    for (final listener in List.of(_moveStartListeners)) {
+      listener(next.move);
+    }
   }
 
   void _onStatus(AnimationStatus status) {
@@ -106,8 +124,9 @@ class CubeAnimationController extends ChangeNotifier {
 }
 
 class _QueuedMove {
-  const _QueuedMove(this.move, this.quarterTurn);
+  const _QueuedMove(this.move, this.quarterTurn, {required this.quiet});
 
   final Move move;
   final Duration? quarterTurn;
+  final bool quiet;
 }

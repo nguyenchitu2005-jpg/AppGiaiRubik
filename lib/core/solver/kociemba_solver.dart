@@ -1,7 +1,6 @@
-import 'dart:isolate';
-
 import 'package:cuber/cuber.dart' as cuber;
 
+import '../concurrency/background.dart';
 import '../cube/cube_state.dart';
 import '../cube/cube_validator.dart';
 import '../cube/move.dart';
@@ -14,12 +13,12 @@ export '../cube/cube_validator.dart' show UnsolvableCubeException;
 abstract final class KociembaSolver {
   static const Duration timeout = Duration(seconds: 10);
 
-  /// Solves [state] on a background isolate so the UI keeps animating.
+  /// Solves [state] in the background so the UI keeps animating.
   ///
   /// Throws [UnsolvableCubeException] if [state] is not a real cube.
   static Future<List<Move>> solve(CubeState state) {
     final facelets = _validatedFacelets(state);
-    return Isolate.run(() => _solveFacelets(facelets));
+    return runInBackground(() => _solveFacelets(facelets));
   }
 
   /// Synchronous variant for tests and for code already off the UI thread.

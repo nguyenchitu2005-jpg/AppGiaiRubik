@@ -6,6 +6,7 @@ import 'package:vector_math/vector_math_64.dart' show Quaternion, Vector3;
 import '../../core/cube/cube_state.dart';
 import '../../core/cube/face.dart';
 import '../../core/cube/move.dart';
+import '../../shared/cube_sounds.dart';
 import '../../state/settings.dart';
 import 'cube_animation_controller.dart';
 import 'cube_painter.dart';
@@ -147,6 +148,7 @@ class _CubeViewState extends ConsumerState<CubeView>
   @override
   Widget build(BuildContext context) {
     final showFaceLabels = ref.watch(faceLabelsProvider);
+    final soundEnabled = ref.watch(soundEnabledProvider);
     return AspectRatio(
       aspectRatio: 1,
       child: LayoutBuilder(
@@ -194,6 +196,13 @@ class _CubeViewState extends ConsumerState<CubeView>
                     selectedIcon: const Icon(Icons.label_outline),
                   ),
                   IconButton(
+                    tooltip: soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh',
+                    isSelected: soundEnabled,
+                    onPressed: ref.read(soundEnabledProvider.notifier).toggle,
+                    icon: const Icon(Icons.volume_off_outlined),
+                    selectedIcon: const Icon(Icons.volume_up_outlined),
+                  ),
+                  IconButton(
                     tooltip: 'Về góc nhìn mặc định',
                     onPressed: _resetView,
                     icon: const Icon(Icons.threed_rotation),
@@ -208,8 +217,9 @@ class _CubeViewState extends ConsumerState<CubeView>
   }
 }
 
-/// [CubeView] driven by a [CubeAnimationController].
-class AnimatedCubeView extends StatelessWidget {
+/// [CubeView] driven by a [CubeAnimationController]. Each layer turn
+/// clicks (whole-cube rotations are silent: nothing turns on the cube).
+class AnimatedCubeView extends ConsumerStatefulWidget {
   const AnimatedCubeView({
     super.key,
     required this.controller,
@@ -226,15 +236,46 @@ class AnimatedCubeView extends StatelessWidget {
   final ValueChanged<List<Move>>? onReorient;
 
   @override
+  ConsumerState<AnimatedCubeView> createState() => _AnimatedCubeViewState();
+}
+
+class _AnimatedCubeViewState extends ConsumerState<AnimatedCubeView> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addMoveStartListener(_onMoveStart);
+  }
+
+  @override
+  void didUpdateWidget(AnimatedCubeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeMoveStartListener(_onMoveStart);
+      widget.controller.addMoveStartListener(_onMoveStart);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeMoveStartListener(_onMoveStart);
+    super.dispose();
+  }
+
+  void _onMoveStart(Move move) {
+    if (move.layer.depth != LayerDepth.all) ref.playTurnSound();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) => CubeView(
         state: controller.displayed,
         turn: controller.turn,
-        hint: controller.isAnimating ? null : hint,
-        focus: focus,
-        onReorient: onReorient,
+        hint: controller.isAnimating ? null : widget.hint,
+        focus: widget.focus,
+        onReorient: widget.onReorient,
       ),
     );
   }
