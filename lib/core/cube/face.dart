@@ -76,6 +76,10 @@ enum Face {
   String get positionName =>
       const ['trên', 'phải', 'trước', 'dưới', 'trái', 'sau'][index];
 
+  /// [positionName] capitalized, for labels: Trên, Phải, Trước, …
+  String get positionTitle =>
+      positionName[0].toUpperCase() + positionName.substring(1);
+
   static Face fromLetter(String letter) => Face.values.firstWhere(
     (f) => f.letter == letter.toUpperCase(),
     orElse: () => throw FormatException('Mặt không hợp lệ: $letter'),

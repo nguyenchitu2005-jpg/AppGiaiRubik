@@ -7,6 +7,7 @@ import '../../core/cube/face.dart';
 import '../../shared/cube_palette.dart';
 import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
+import '../../state/settings.dart';
 import '../viewer3d/cube_view.dart';
 
 /// Lets the user paint the cube they are holding, on the 2D net or directly
@@ -140,7 +141,11 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
                   child: CubeView(state: _cube, onStickerTap: _paint),
                 ),
               ),
-              CubeNetView(state: _cube, onStickerTap: _paint),
+              CubeNetView(
+                state: _cube,
+                onStickerTap: _paint,
+                showFaceLabels: ref.watch(faceLabelsProvider),
+              ),
               const SizedBox(height: 16),
               Wrap(
                 alignment: WrapAlignment.center,

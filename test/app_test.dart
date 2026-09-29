@@ -219,4 +219,20 @@ void main() {
     await tester.pump();
     expect(find.text('10/9'), findsOneWidget);
   });
+
+  testWidgets('the 2D net names each face and follows the label toggle', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    const names = ['Trên', 'Dưới', 'Trước', 'Sau', 'Trái', 'Phải'];
+    for (final name in names) {
+      expect(find.text(name), findsOneWidget, reason: name);
+    }
+
+    await tester.tap(find.byTooltip('Ẩn ký hiệu mặt'));
+    await tester.pump();
+    for (final name in names) {
+      expect(find.text(name), findsNothing, reason: name);
+    }
+  });
 }

@@ -16,4 +16,10 @@ abstract final class CubePalette {
   };
 
   static Color of(Face face) => standard[face]!;
+
+  /// Readable text color for a label printed on a [sticker]: dark on the
+  /// light colors (white, yellow, green, orange), light on red and blue.
+  static Color labelOn(Face sticker) => of(sticker).computeLuminance() > 0.4
+      ? const Color(0x9E000000)
+      : const Color(0xF2FFFFFF);
 }

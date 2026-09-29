@@ -118,7 +118,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  CubeNetView(state: session.cube),
+                  CubeNetView(
+                    state: session.cube,
+                    showFaceLabels: ref.watch(faceLabelsProvider),
+                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [

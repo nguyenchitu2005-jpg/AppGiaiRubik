@@ -30,7 +30,7 @@ class CubePainter extends CustomPainter {
   /// are relative to a sticker (which is 88 units wide).
   static const _labelUnits = 100.0;
 
-  static final Map<(Face, bool), (TextPainter, TextPainter)> _labelText = {};
+  static final Map<(Face, Color), (TextPainter, TextPainter)> _labelText = {};
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -64,28 +64,18 @@ class CubePainter extends CustomPainter {
         canvas.drawPath(path, fill..color = color);
         final label = polygon.label;
         if (showFaceLabels && label != null) {
-          // Decide on the unshaded color so the text color stays put while
-          // the cube is rotated.
-          _paintLabel(
-            canvas,
-            label,
-            onLightSticker: CubePalette.of(sticker).computeLuminance() > 0.4,
-          );
+          _paintLabel(canvas, label, CubePalette.labelOn(sticker));
         }
       }
     }
   }
 
-  void _paintLabel(
-    Canvas canvas,
-    FaceLabel faceLabel, {
-    required bool onLightSticker,
-  }) {
+  void _paintLabel(Canvas canvas, FaceLabel faceLabel, Color color) {
     final label = faceLabel.upright;
     final (letter, name) = _labelText.putIfAbsent((
       label.face,
-      onLightSticker,
-    ), () => _layoutLabel(label.face, onLightSticker));
+      color,
+    ), () => _layoutLabel(label.face, color));
     canvas
       ..save()
       ..transform(
@@ -114,14 +104,7 @@ class CubePainter extends CustomPainter {
     canvas.restore();
   }
 
-  static (TextPainter, TextPainter) _layoutLabel(
-    Face face,
-    bool onLightSticker,
-  ) {
-    final color = onLightSticker
-        ? Colors.black.withValues(alpha: 0.62)
-        : Colors.white.withValues(alpha: 0.95);
-    final positionName = face.positionName;
+  static (TextPainter, TextPainter) _layoutLabel(Face face, Color color) {
     TextPainter text(String value, double size, FontWeight weight) =>
         TextPainter(
           text: TextSpan(
@@ -137,11 +120,7 @@ class CubePainter extends CustomPainter {
         )..layout();
     return (
       text(face.letter, 48, FontWeight.w800),
-      text(
-        positionName[0].toUpperCase() + positionName.substring(1),
-        21,
-        FontWeight.w600,
-      ),
+      text(face.positionTitle, 21, FontWeight.w600),
     );
   }
 
