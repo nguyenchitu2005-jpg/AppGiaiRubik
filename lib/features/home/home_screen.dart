@@ -10,6 +10,7 @@ import '../input/net_editor_screen.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../guide/guide_screen.dart';
 import '../library/algorithm_library_screen.dart';
+import '../scanner/scan_screen.dart';
 import '../viewer3d/cube_animation_controller.dart';
 import '../viewer3d/cube_view.dart';
 
@@ -174,6 +175,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(ScanScreen.routeName),
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Quét khối bằng camera'),
                   ),
                   const SizedBox(height: 16),
                   Row(

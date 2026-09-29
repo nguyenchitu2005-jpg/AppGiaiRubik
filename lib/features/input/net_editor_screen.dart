@@ -13,7 +13,20 @@ import '../viewer3d/cube_view.dart';
 /// Lets the user paint the cube they are holding, on the 2D net or directly
 /// on the 3D model. Both views show the same state at all times.
 class NetEditorScreen extends ConsumerStatefulWidget {
-  const NetEditorScreen({super.key});
+  const NetEditorScreen({
+    super.key,
+    this.initial,
+    this.title = 'Nhập màu khối',
+    this.notice,
+  });
+
+  /// Cube to start from (e.g. a camera scan); defaults to the session cube.
+  final CubeState? initial;
+
+  final String title;
+
+  /// Shown above the editor, e.g. what the scanner fixed or doubts.
+  final String? notice;
 
   static const routeName = '/input';
 
@@ -22,7 +35,7 @@ class NetEditorScreen extends ConsumerStatefulWidget {
 }
 
 class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
-  late CubeState _cube = ref.read(cubeSessionProvider).cube;
+  late CubeState _cube = widget.initial ?? ref.read(cubeSessionProvider).cube;
   Face _brush = Face.u;
 
   final List<CubeState> _undo = [];
@@ -105,7 +118,7 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nhập màu khối'),
+        title: Text(widget.title),
         actions: [
           IconButton(
             tooltip: 'Hoàn tác',
@@ -130,6 +143,14 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (widget.notice != null)
+                Card(
+                  color: theme.colorScheme.secondaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(widget.notice!),
+                  ),
+                ),
               Text(
                 'Cầm khối với tâm trắng ở trên, tâm xanh lá hướng về phía bạn. '
                 'Chọn màu bên dưới rồi chạm vào ô trên sơ đồ hoặc trên khối 3D để tô.',

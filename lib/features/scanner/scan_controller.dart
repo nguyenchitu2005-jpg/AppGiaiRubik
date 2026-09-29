@@ -1,0 +1,137 @@
+import 'package:flutter/foundation.dart';
+
+import '../../core/cube/face.dart';
+import '../../core/vision/color_classifier.dart';
+import '../../core/vision/color_math.dart';
+import '../../core/vision/scan_assembler.dart';
+
+/// One face to scan and how to hold the cube for it. The holds match the
+/// unfolded net, so each camera grid maps straight onto facelets.
+class ScanStep {
+  const ScanStep(this.face, this.instruction);
+
+  final Face face;
+  final String instruction;
+}
+
+/// Walks the user through scanning six faces from a stream of camera
+/// samples (9 colors per frame).
+class ScanController extends ChangeNotifier {
+  static const steps = [
+    ScanStep(
+      Face.f,
+      'Cầm khối với tâm trắng ở trên. Đưa mặt có tâm xanh lá vào khung.',
+    ),
+    ScanStep(
+      Face.r,
+      'Xoay cả khối sang trái một góc vuông (trắng vẫn ở trên): mặt tâm đỏ '
+      'vào khung.',
+    ),
+    ScanStep(
+      Face.b,
+      'Xoay tiếp sang trái một góc vuông: mặt tâm xanh dương vào khung.',
+    ),
+    ScanStep(
+      Face.l,
+      'Xoay tiếp sang trái một góc vuông: mặt tâm cam vào khung.',
+    ),
+    ScanStep(
+      Face.u,
+      'Xoay tiếp sang trái để mặt xanh lá về phía trước, rồi lật mặt trên về '
+      'phía bạn: mặt tâm trắng vào khung, mặt xanh dương ở trên.',
+    ),
+    ScanStep(
+      Face.d,
+      'Lật khối nửa vòng theo chiều dọc: mặt tâm vàng vào khung, mặt xanh lá '
+      'ở trên.',
+    ),
+  ];
+
+  /// Colors must stay the same this long before a face can be captured.
+  static const stableFor = Duration(milliseconds: 500);
+
+  final Map<Face, List<Rgb>> _captured = {};
+  final List<_Frame> _frames = [];
+  int _stepIndex = 0;
+  bool _stable = false;
+
+  int get stepIndex => _stepIndex;
+
+  bool get isComplete => _stepIndex == steps.length;
+
+  ScanStep? get step => isComplete ? null : steps[_stepIndex];
+
+  /// Latest per-sticker guess, or null before the first frame.
+  List<Face>? get live => _frames.isEmpty ? null : _frames.last.labels;
+
+  /// The guesses have not changed for [stableFor].
+  bool get isStable => _stable;
+
+  /// The live center matches the face we asked for (a hint that the right
+  /// face is in the frame).
+  bool get centerMatches => live == null || live![4] == step?.face;
+
+  /// Captured faces as best guesses, for a small preview.
+  Map<Face, List<Face>> get capturedPreview => {
+    for (final entry in _captured.entries)
+      entry.key: [for (final c in entry.value) LiveColorClassifier.classify(c)],
+  };
+
+  void addFrame(List<Rgb> samples, Duration time) {
+    if (isComplete) return;
+    final labels = [for (final s in samples) LiveColorClassifier.classify(s)];
+    _frames
+      ..add(_Frame(time, labels, samples))
+      ..removeWhere((f) => time - f.time > stableFor * 3);
+    _stable = time - _stableRun.first.time >= stableFor;
+    notifyListeners();
+  }
+
+  /// Records the current face from the average of its stable frames.
+  void capture() {
+    if (!_stable || isComplete) return;
+    final run = _stableRun;
+    _captured[step!.face] = [
+      for (var i = 0; i < 9; i++)
+        Rgb.average([for (final f in run) f.samples[i]]),
+    ];
+    _stepIndex++;
+    _reset();
+  }
+
+  void retakePrevious() {
+    if (_stepIndex == 0) return;
+    _stepIndex--;
+    _captured.remove(steps[_stepIndex].face);
+    _reset();
+  }
+
+  ScanResult assemble() {
+    if (!isComplete) throw StateError('Chưa quét đủ 6 mặt');
+    return ScanAssembler.assemble(_captured);
+  }
+
+  /// Trailing frames whose guesses equal the latest ones.
+  List<_Frame> get _stableRun {
+    final latest = _frames.last.labels;
+    var start = _frames.length - 1;
+    while (start > 0 && listEquals(_frames[start - 1].labels, latest)) {
+      start--;
+    }
+    return _frames.sublist(start);
+  }
+
+  void _reset() {
+    _frames.clear();
+    _stable = false;
+    notifyListeners();
+  }
+}
+
+class _Frame {
+  const _Frame(this.time, this.labels, this.samples);
+
+  final Duration time;
+  final List<Face> labels;
+  final List<Rgb> samples;
+}

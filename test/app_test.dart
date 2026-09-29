@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rubik_solver/app.dart';
 import 'package:rubik_solver/core/cube/cube_state.dart';
 import 'package:rubik_solver/core/cube/face.dart';
+import 'package:rubik_solver/features/input/net_editor_screen.dart';
 import 'package:rubik_solver/features/viewer3d/cube_painter.dart';
 import 'package:rubik_solver/features/viewer3d/cube_scene.dart';
 import 'package:rubik_solver/features/viewer3d/cube_view.dart';
@@ -264,5 +265,51 @@ void main() {
     for (final name in names) {
       expect(find.text(name), findsNothing, reason: name);
     }
+  });
+
+  testWidgets('scanner: without a camera it offers manual entry', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Quét khối bằng camera'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Mặt 1/6'), findsOneWidget);
+    // No camera plugin in tests: opening gives up after the timeout.
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Không tìm thấy camera'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Chụp mặt này'),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.text('Không quét được? Nhập màu bằng tay'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nhập màu khối'), findsOneWidget);
+  });
+
+  testWidgets('scan review shows the scanned cube and the notice', (
+    tester,
+  ) async {
+    final scanned = solved.applyAlgorithm("R U R' U'");
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: NetEditorScreen(
+            initial: scanned,
+            title: 'Kiểm tra kết quả quét',
+            notice: 'Đã tự xoay lại mặt tâm trắng.',
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Kiểm tra kết quả quét'), findsOneWidget);
+    expect(find.text('Đã tự xoay lại mặt tâm trắng.'), findsOneWidget);
+    expect(painter(tester).state, scanned);
   });
 }
