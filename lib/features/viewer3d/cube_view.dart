@@ -32,14 +32,35 @@ class CubeView extends ConsumerStatefulWidget {
   ConsumerState<CubeView> createState() => _CubeViewState();
 }
 
-class _CubeViewState extends ConsumerState<CubeView> {
+class _CubeViewState extends ConsumerState<CubeView>
+    with SingleTickerProviderStateMixin {
   static const _radiansPerPixel = 0.012;
 
   Quaternion _orientation = CubeScene.defaultOrientation();
   Offset? _downPosition;
   double _dragDistance = 0;
 
+  /// Eases the cube back to an upright pose after a drag.
+  late final AnimationController _snap = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  )..addListener(_onSnapTick);
+  Quaternion _snapFrom = CubeScene.defaultOrientation();
+  Quaternion _snapTo = CubeScene.defaultOrientation();
+
+  @override
+  void dispose() {
+    _snap.dispose();
+    super.dispose();
+  }
+
+  void _onSnapTick() {
+    final t = Curves.easeOutCubic.transform(_snap.value);
+    setState(() => _orientation = _nlerp(_snapFrom, _snapTo, t));
+  }
+
   void _onPanDown(DragDownDetails details) {
+    _snap.stop();
     _downPosition = details.localPosition;
     _dragDistance = 0;
   }
@@ -58,9 +79,15 @@ class _CubeViewState extends ConsumerState<CubeView> {
 
   void _onPanEnd(Size size) {
     final down = _downPosition;
-    final onTap = widget.onStickerTap;
     _downPosition = null;
-    if (down == null || onTap == null || _dragDistance > kTouchSlop) return;
+    if (_dragDistance > kTouchSlop) {
+      _snapFrom = _orientation;
+      _snapTo = CubeScene.snapOrientation(_orientation);
+      _snap.forward(from: 0);
+      return;
+    }
+    final onTap = widget.onStickerTap;
+    if (down == null || onTap == null) return;
     final polygons = CubeScene.build(
       state: widget.state,
       view: _orientation.asRotationMatrix(),
@@ -71,8 +98,22 @@ class _CubeViewState extends ConsumerState<CubeView> {
     if (index != null) onTap(index);
   }
 
-  void _resetView() =>
-      setState(() => _orientation = CubeScene.defaultOrientation());
+  void _resetView() {
+    _snap.stop();
+    setState(() => _orientation = CubeScene.defaultOrientation());
+  }
+
+  /// Normalized linear interpolation along the shorter arc.
+  static Quaternion _nlerp(Quaternion a, Quaternion b, double t) {
+    final dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+    final sign = dot < 0 ? -1.0 : 1.0;
+    return Quaternion(
+      a.x + (b.x * sign - a.x) * t,
+      a.y + (b.y * sign - a.y) * t,
+      a.z + (b.z * sign - a.z) * t,
+      a.w + (b.w * sign - a.w) * t,
+    )..normalize();
+  }
 
   @override
   Widget build(BuildContext context) {

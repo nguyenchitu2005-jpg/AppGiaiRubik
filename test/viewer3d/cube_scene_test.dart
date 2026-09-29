@@ -147,4 +147,82 @@ void main() {
       }
     }
   });
+
+  group('snapOrientation', () {
+    final tilt = CubeScene.defaultOrientation().asRotationMatrix();
+
+    /// The pose relative to the default tilt, which must be a signed
+    /// permutation (one of the 24 ways to hold the cube).
+    Matrix3 relativeTo(Quaternion q) =>
+        tilt.transposed().multiplied(q.asRotationMatrix());
+
+    bool isUpright(Quaternion q) {
+      final m = relativeTo(q);
+      for (var row = 0; row < 3; row++) {
+        for (var col = 0; col < 3; col++) {
+          final v = m.entry(row, col).abs();
+          if (v > 1e-9 && (v - 1).abs() > 1e-9) return false;
+        }
+      }
+      return true;
+    }
+
+    Quaternion turned(Quaternion q, Vector3 axis, double angle) =>
+        Quaternion.axisAngle(axis, angle) * q;
+
+    test('small drags settle back to the same pose', () {
+      final start = CubeScene.defaultOrientation();
+      final snapped = CubeScene.snapOrientation(
+        turned(start, Vector3(0.3, 1, 0.2)..normalize(), 0.5),
+      );
+      expect(maxDiff(relativeTo(snapped), Matrix3.identity()), lessThan(1e-9));
+    });
+
+    test('turning past halfway brings the next face to the front', () {
+      final start = CubeScene.defaultOrientation();
+      final snapped = CubeScene.snapOrientation(
+        turned(start, Vector3(0, 1, 0), math.pi / 2 + 0.3),
+      );
+      expect(isUpright(snapped), isTrue);
+      // The left face now faces where the front face used to.
+      final m = relativeTo(snapped);
+      expect(m.transformed(Vector3(-1, 0, 0)).z, closeTo(1, 1e-9));
+    });
+
+    test('always lands on one of the 24 upright poses, showing 3 faces', () {
+      final random = math.Random(12);
+      final poses = <String>{};
+      for (var n = 0; n < 500; n++) {
+        final q = Quaternion.axisAngle(
+          Vector3(
+            random.nextDouble() - 0.5,
+            random.nextDouble() - 0.5,
+            random.nextDouble() - 0.5,
+          )..normalize(),
+          random.nextDouble() * 2 * math.pi,
+        );
+        final snapped = CubeScene.snapOrientation(q);
+        expect(isUpright(snapped), isTrue);
+        final again = CubeScene.snapOrientation(snapped);
+        expect(maxDiff(relativeTo(again), relativeTo(snapped)), lessThan(1e-9));
+        poses.add(relativeTo(snapped).storage.map((v) => v.round()).join(','));
+        final visible = stickers(
+          CubeState.solved(),
+          snapped.asRotationMatrix(),
+        );
+        expect(visible, hasLength(27));
+      }
+      expect(poses, hasLength(24));
+    });
+  });
+}
+
+/// Largest entry-wise difference (vector_math's absoluteError only compares
+/// matrix norms, which are equal for all rotations).
+double maxDiff(Matrix3 a, Matrix3 b) {
+  var result = 0.0;
+  for (var i = 0; i < 9; i++) {
+    result = math.max(result, (a.storage[i] - b.storage[i]).abs());
+  }
+  return result;
 }

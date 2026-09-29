@@ -112,6 +112,51 @@ abstract final class CubeScene {
       Quaternion.axisAngle(Vector3(1, 0, 0), 0.45) *
       Quaternion.axisAngle(Vector3(0, 1, 0), -0.6);
 
+  /// The 24 ways to hold a cube: rotations that map axes onto axes.
+  static final List<Matrix3> _cubeRotations = () {
+    const permutations = [
+      [0, 1, 2], [0, 2, 1], [1, 0, 2], //
+      [1, 2, 0], [2, 0, 1], [2, 1, 0],
+    ];
+    final rotations = <Matrix3>[];
+    for (final p in permutations) {
+      for (var signs = 0; signs < 8; signs++) {
+        final m = Matrix3.zero();
+        for (var row = 0; row < 3; row++) {
+          m.setEntry(row, p[row], (signs >> row) & 1 == 0 ? 1 : -1);
+        }
+        if (m.determinant() > 0) rotations.add(m);
+      }
+    }
+    return rotations;
+  }();
+
+  /// The upright pose closest to [orientation]: the default three-quarter
+  /// view, with the cube held in whichever of its 24 orientations the user
+  /// has turned it closest to.
+  static Quaternion snapOrientation(Quaternion orientation) {
+    final tilt = defaultOrientation().asRotationMatrix();
+    final relative = tilt.transposed().multiplied(
+      orientation.asRotationMatrix(),
+    );
+    late Matrix3 best;
+    var bestScore = double.negativeInfinity;
+    for (final candidate in _cubeRotations) {
+      // trace(candidateᵀ · relative) is largest for the nearest rotation.
+      var score = 0.0;
+      for (var row = 0; row < 3; row++) {
+        for (var col = 0; col < 3; col++) {
+          score += candidate.entry(row, col) * relative.entry(row, col);
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = candidate;
+      }
+    }
+    return Quaternion.fromRotation(tilt.multiplied(best));
+  }
+
   static final Vector3 _light = Vector3(-0.25, 0.7, 0.75)..normalize();
 
   /// Radius of the cube's bounding sphere, magnified by perspective.

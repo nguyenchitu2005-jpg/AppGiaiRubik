@@ -24,6 +24,29 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
   late CubeState _cube = ref.read(cubeSessionProvider).cube;
   Face _brush = Face.u;
 
+  final List<CubeState> _undo = [];
+  final List<CubeState> _redo = [];
+
+  /// Replaces the cube, remembering the old one for undo.
+  void _edit(CubeState next) {
+    if (next == _cube) return;
+    setState(() {
+      _undo.add(_cube);
+      _redo.clear();
+      _cube = next;
+    });
+  }
+
+  void _undoEdit() => setState(() {
+    _redo.add(_cube);
+    _cube = _undo.removeLast();
+  });
+
+  void _redoEdit() => setState(() {
+    _undo.add(_cube);
+    _cube = _redo.removeLast();
+  });
+
   void _paint(int index) {
     if (index % 9 == 4) {
       ScaffoldMessenger.of(context)
@@ -38,7 +61,7 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
         );
       return;
     }
-    setState(() => _cube = _cube.withSticker(index, _brush));
+    _edit(_cube.withSticker(index, _brush));
   }
 
   void _finish() {
@@ -83,9 +106,20 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
       appBar: AppBar(
         title: const Text('Nhập màu khối'),
         actions: [
-          TextButton(
-            onPressed: () => setState(() => _cube = CubeState.solved()),
-            child: const Text('Khối đã giải'),
+          IconButton(
+            tooltip: 'Hoàn tác',
+            onPressed: _undo.isEmpty ? null : _undoEdit,
+            icon: const Icon(Icons.undo),
+          ),
+          IconButton(
+            tooltip: 'Làm lại',
+            onPressed: _redo.isEmpty ? null : _redoEdit,
+            icon: const Icon(Icons.redo),
+          ),
+          IconButton(
+            tooltip: 'Đặt về khối đã giải',
+            onPressed: () => _edit(CubeState.solved()),
+            icon: const Icon(Icons.restart_alt),
           ),
         ],
       ),

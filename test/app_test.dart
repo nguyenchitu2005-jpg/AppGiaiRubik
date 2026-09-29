@@ -98,7 +98,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Start over and twist URF clockwise and UFL counter-clockwise: valid.
-    await tester.tap(find.text('Khối đã giải'));
+    await tester.tap(find.byTooltip('Đặt về khối đã giải'));
     for (final (brush, sticker) in [
       ('F', 8), ('U', 9), ('R', 20), //
       ('F', 6), ('L', 18), ('U', 38),
@@ -177,5 +177,46 @@ void main() {
     await tester.tap(finish);
     await tester.pumpAndSettle();
     expect(find.text('Khối đã được giải'), findsOneWidget);
+  });
+
+  testWidgets('editor: undo and redo edits', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Nhập màu'));
+    await tester.pumpAndSettle();
+
+    IconButton button(String tooltip) => tester.widget<IconButton>(
+      find.widgetWithIcon(IconButton, switch (tooltip) {
+        'Hoàn tác' => Icons.undo,
+        _ => Icons.redo,
+      }),
+    );
+    expect(button('Hoàn tác').onPressed, isNull);
+
+    await tester.tap(find.byKey(const ValueKey('brush-R')));
+    await tester.tap(find.byKey(const ValueKey('sticker-0')));
+    await tester.tap(find.byKey(const ValueKey('sticker-1')));
+    await tester.pump();
+    expect(find.text('11/9'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Hoàn tác'));
+    await tester.pump();
+    expect(find.text('10/9'), findsOneWidget);
+    await tester.tap(find.byTooltip('Hoàn tác'));
+    await tester.pump();
+    expect(find.text('9/9'), findsNWidgets(6));
+    expect(button('Hoàn tác').onPressed, isNull);
+
+    await tester.tap(find.byTooltip('Làm lại'));
+    await tester.pump();
+    expect(find.text('10/9'), findsOneWidget);
+
+    // Resetting to solved can be undone too; a new edit clears redo.
+    await tester.tap(find.byTooltip('Đặt về khối đã giải'));
+    await tester.pump();
+    expect(find.text('9/9'), findsNWidgets(6));
+    expect(button('Làm lại').onPressed, isNull);
+    await tester.tap(find.byTooltip('Hoàn tác'));
+    await tester.pump();
+    expect(find.text('10/9'), findsOneWidget);
   });
 }
