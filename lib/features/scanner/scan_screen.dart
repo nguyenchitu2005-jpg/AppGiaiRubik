@@ -190,85 +190,92 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     final camera = _camera;
     return Scaffold(
       appBar: AppBar(title: const Text('Quét khối bằng camera')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _FaceProgress(scan: _scan),
-          const SizedBox(height: 12),
-          if (step != null)
-            Text(
-              'Mặt ${_scan.stepIndex + 1}/6: ${step.instruction}',
-              style: theme.textTheme.titleSmall,
-            ),
-          const SizedBox(height: 12),
-          if (_error != null)
-            _CameraError(message: _error!, onRetry: _openCamera)
-          else if (camera == null || !camera.value.isInitialized)
-            const AspectRatio(
-              aspectRatio: 3 / 4,
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 1 / camera.value.aspectRatio,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CameraPreview(camera),
-                    CustomPaint(
-                      painter: _GridOverlay(
-                        grid: _gridRect(camera),
-                        live: _scan.live,
-                        stable: _scan.isStable,
+      body: SafeArea(
+        // Keep the end of the page clear of the system navigation bar
+        // (Android draws edge to edge).
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _FaceProgress(scan: _scan),
+            const SizedBox(height: 12),
+            if (step != null)
+              Text(
+                'Mặt ${_scan.stepIndex + 1}/6: ${step.instruction}',
+                style: theme.textTheme.titleSmall,
+              ),
+            const SizedBox(height: 12),
+            if (_error != null)
+              _CameraError(message: _error!, onRetry: _openCamera)
+            else if (camera == null || !camera.value.isInitialized)
+              const AspectRatio(
+                aspectRatio: 3 / 4,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: AspectRatio(
+                  aspectRatio: 1 / camera.value.aspectRatio,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CameraPreview(camera),
+                      CustomPaint(
+                        painter: _GridOverlay(
+                          grid: _gridRect(camera),
+                          live: _scan.live,
+                          stable: _scan.isStable,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          const SizedBox(height: 8),
-          if (step != null && !_scan.centerMatches)
+            const SizedBox(height: 8),
+            if (step != null && !_scan.centerMatches)
+              Text(
+                'Tâm đang thấy không giống màu '
+                '${step.face.colorName.toLowerCase()}: hãy kiểm tra lại mặt '
+                'đang quét.',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
             Text(
-              'Tâm đang thấy không giống màu '
-              '${step.face.colorName.toLowerCase()}: hãy kiểm tra lại mặt '
-              'đang quét.',
-              style: TextStyle(color: theme.colorScheme.error),
+              _scan.isStable
+                  ? 'Màu đã ổn định, có thể chụp.'
+                  : 'Giữ yên khối trong khung…',
+              style: theme.textTheme.bodySmall,
             ),
-          Text(
-            _scan.isStable
-                ? 'Màu đã ổn định, có thể chụp.'
-                : 'Giữ yên khối trong khung…',
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _scan.stepIndex == 0 ? null : _scan.retakePrevious,
-                  icon: const Icon(Icons.undo),
-                  label: const Text('Chụp lại mặt trước'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _scan.stepIndex == 0
+                        ? null
+                        : _scan.retakePrevious,
+                    icon: const Icon(Icons.undo),
+                    label: const Text('Chụp lại mặt trước'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _scan.isStable ? _scan.capture : null,
-                  icon: const Icon(Icons.camera),
-                  label: const Text('Chụp mặt này'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _scan.isStable ? _scan.capture : null,
+                    icon: const Icon(Icons.camera),
+                    label: const Text('Chụp mặt này'),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context)
-                    .pushReplacementNamed(NetEditorScreen.routeName),
-            child: const Text('Không quét được? Nhập màu bằng tay'),
-          ),
-        ],
+              ],
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context)
+                      .pushReplacementNamed(NetEditorScreen.routeName),
+              child: const Text('Không quét được? Nhập màu bằng tay'),
+            ),
+          ],
+        ),
       ),
     );
   }

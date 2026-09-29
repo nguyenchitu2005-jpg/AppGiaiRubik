@@ -147,71 +147,76 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
           ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (widget.notice != null)
-                Card(
-                  color: theme.colorScheme.secondaryContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(widget.notice!),
-                  ),
-                ),
-              Text(
-                'Cầm khối với tâm trắng ở trên, tâm xanh lá hướng về phía bạn. '
-                'Chọn màu bên dưới rồi chạm vào ô trên sơ đồ hoặc trên khối 3D để tô.',
-                style: theme.textTheme.bodyMedium,
-              ),
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 260),
-                  child: CubeView(
-                    state: _cube,
-                    onStickerTap: _paint,
-                    onReorient: _reorient,
-                  ),
-                ),
-              ),
-              CubeNetView(
-                state: _cube,
-                onStickerTap: _paint,
-                showFaceLabels: ref.watch(faceLabelsProvider),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final face in Face.values)
-                    _BrushChip(
-                      face: face,
-                      count: counts[face]!,
-                      selected: face == _brush,
-                      onTap: () => setState(() => _brush = face),
+      body: SafeArea(
+        // Keep the end of the page clear of the system navigation bar
+        // (Android draws edge to edge).
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (widget.notice != null)
+                  Card(
+                    color: theme.colorScheme.secondaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(widget.notice!),
                     ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (!complete)
+                  ),
                 Text(
-                  'Mỗi màu cần đúng 9 ô.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
+                  'Cầm khối với tâm trắng ở trên, tâm xanh lá hướng về phía bạn. '
+                  'Chọn màu bên dưới rồi chạm vào ô trên sơ đồ hoặc trên khối 3D để tô.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    child: CubeView(
+                      state: _cube,
+                      onStickerTap: _paint,
+                      onReorient: _reorient,
+                    ),
                   ),
                 ),
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                onPressed: complete ? _finish : null,
-                icon: const Icon(Icons.check),
-                label: const Text('Dùng trạng thái này'),
-              ),
-            ],
+                CubeNetView(
+                  state: _cube,
+                  onStickerTap: _paint,
+                  showFaceLabels: ref.watch(faceLabelsProvider),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final face in Face.values)
+                      _BrushChip(
+                        face: face,
+                        count: counts[face]!,
+                        selected: face == _brush,
+                        onTap: () => setState(() => _brush = face),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (!complete)
+                  Text(
+                    'Mỗi màu cần đúng 9 ô.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: complete ? _finish : null,
+                  icon: const Icon(Icons.check),
+                  label: const Text('Dùng trạng thái này'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

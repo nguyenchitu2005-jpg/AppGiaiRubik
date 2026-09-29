@@ -23,23 +23,28 @@ class AlgorithmLibraryScreen extends StatelessWidget {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Thư viện công thức')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(
-                'Ký hiệu: chữ cái là mặt cần xoay (U trên, D dưới, F trước, '
-                'B sau, L trái, R phải). Không có dấu: xoay theo chiều kim '
-                "đồng hồ khi nhìn thẳng vào mặt đó; dấu ' : ngược chiều; "
-                'số 2: xoay 2 lần.',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              for (final algorithm in Algorithms.all)
-                _AlgorithmCard(algorithm: algorithm),
-            ],
+      body: SafeArea(
+        // Keep the end of the page clear of the system navigation bar
+        // (Android draws edge to edge).
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  'Ký hiệu: chữ cái là mặt cần xoay (U trên, D dưới, F trước, '
+                  'B sau, L trái, R phải). Không có dấu: xoay theo chiều kim '
+                  "đồng hồ khi nhìn thẳng vào mặt đó; dấu ' : ngược chiều; "
+                  'số 2: xoay 2 lần.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                for (final algorithm in Algorithms.all)
+                  _AlgorithmCard(algorithm: algorithm),
+              ],
+            ),
           ),
         ),
       ),
@@ -152,22 +157,27 @@ class _AlgorithmDemoScreenState extends ConsumerState<AlgorithmDemoScreen>
     );
     return Scaffold(
       appBar: AppBar(title: Text(widget.algorithm.name)),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SolutionPlayerView(player: _player, showStages: false),
-              const SizedBox(height: 8),
-              const SpeedSelector(),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => _player.jumpTo(0),
-                icon: const Icon(Icons.replay),
-                label: const Text('Xem lại từ đầu'),
-              ),
-            ],
+      body: SafeArea(
+        // Keep the end of the page clear of the system navigation bar
+        // (Android draws edge to edge).
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                SolutionPlayerView(player: _player, showStages: false),
+                const SizedBox(height: 8),
+                const SpeedSelector(),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _player.jumpTo(0),
+                  icon: const Icon(Icons.replay),
+                  label: const Text('Xem lại từ đầu'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

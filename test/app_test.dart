@@ -384,4 +384,44 @@ void main() {
       expect((tester.getRect(cube), tester.getRect(net)), before);
     });
   }
+
+  // Regression: on a real phone the first frame came at 0×0, the net got a
+  // negative width and the widget tree broke ("not our descendant").
+  testWidgets('starts at zero size, then gets the real size', (tester) async {
+    tester.view
+      ..physicalSize = Size.zero
+      ..devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const ProviderScope(child: RubikApp()));
+    tester.view
+      ..physicalSize = const Size(1080, 2374)
+      ..padding = const FakeViewPadding(top: 110, bottom: 60)
+      ..viewPadding = const FakeViewPadding(top: 110, bottom: 60);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(CubeView), findsOneWidget);
+    expect(find.byType(CubeNetView), findsOneWidget);
+  });
+
+  // Regression: Android draws edge to edge, and the last button of a page
+  // ended up under the system navigation bar.
+  testWidgets('page ends stay clear of the navigation bar', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1080, 2374)
+      ..devicePixelRatio = 3
+      ..padding = const FakeViewPadding(top: 110, bottom: 120)
+      ..viewPadding = const FakeViewPadding(top: 110, bottom: 120);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: NetEditorScreen())),
+    );
+    await tester.pumpAndSettle();
+    // Scroll from the left margin: a drag on the 3D cube turns the cube.
+    await tester.dragFrom(const Offset(6, 500), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    const navigationBarTop = (2374 - 120) / 3;
+    final button = find.widgetWithText(FilledButton, 'Dùng trạng thái này');
+    expect(tester.getRect(button).bottom, lessThanOrEqualTo(navigationBarTop));
+  });
 }

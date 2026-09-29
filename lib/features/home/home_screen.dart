@@ -108,12 +108,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 builder: (context, constraints) {
                   // Share the height: 3D cube, then the flat net, then the
                   // scrolling buttons (move pad first).
+                  // On Android the first frame can come before the window has
+                  // a size: wait for the real one rather than lay out at 0×0.
+                  if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
+                    return const SizedBox.shrink();
+                  }
                   final height = constraints.maxHeight;
-                  final cubeSize = (height * 0.30).clamp(90.0, 300.0);
-                  final netHeight = (height * 0.22).clamp(60.0, 240.0);
-                  final netWidth = math.min(
-                    netHeight * 4 / 3,
-                    constraints.maxWidth - 32,
+                  final cubeSize = math.min(height * 0.30, 300.0);
+                  final netHeight = math.min(height * 0.22, 240.0);
+                  final netWidth = math.max(
+                    0.0,
+                    math.min(netHeight * 4 / 3, constraints.maxWidth - 32),
                   );
                   return Column(
                     children: [

@@ -149,33 +149,38 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
           ),
         ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: switch ((player, _error)) {
-            (_, final Object error) => _ErrorView(error: error),
-            (null, _) => const _Loading(),
-            (final SolutionPlayer player, _) => ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                SolutionPlayerView(
-                  player: player,
-                  showStages: _mode == SolveMode.learn,
-                ),
-                const SizedBox(height: 8),
-                const SpeedSelector(),
-                const SizedBox(height: 16),
-                ListenableBuilder(
-                  listenable: player,
-                  builder: (context, _) => FilledButton.icon(
-                    onPressed: player.isDone ? _finish : null,
-                    icon: const Icon(Icons.check),
-                    label: const Text('Hoàn tất'),
+      body: SafeArea(
+        // Keep the end of the page clear of the system navigation bar
+        // (Android draws edge to edge).
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: switch ((player, _error)) {
+              (_, final Object error) => _ErrorView(error: error),
+              (null, _) => const _Loading(),
+              (final SolutionPlayer player, _) => ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  SolutionPlayerView(
+                    player: player,
+                    showStages: _mode == SolveMode.learn,
                   ),
-                ),
-              ],
-            ),
-          },
+                  const SizedBox(height: 8),
+                  const SpeedSelector(),
+                  const SizedBox(height: 16),
+                  ListenableBuilder(
+                    listenable: player,
+                    builder: (context, _) => FilledButton.icon(
+                      onPressed: player.isDone ? _finish : null,
+                      icon: const Icon(Icons.check),
+                      label: const Text('Hoàn tất'),
+                    ),
+                  ),
+                ],
+              ),
+            },
+          ),
         ),
       ),
     );
