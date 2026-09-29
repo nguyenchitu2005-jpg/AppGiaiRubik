@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -88,10 +90,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final controller = ref.read(cubeSessionProvider.notifier);
     final solved = session.cube.isSolved;
     final theme = Theme.of(context);
-    final cubeSize = (MediaQuery.sizeOf(context).height * 0.32).clamp(
-      180.0,
-      320.0,
-    );
 
     return Scaffold(
       body: DecoratedBox(
@@ -105,159 +103,173 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
-              child: Column(
-                children: [
-                  // Pinned: the cube stays in view while the buttons below
-                  // scroll, so every turn can be watched.
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Rubik Solver',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Share the height: 3D cube, then the flat net, then the
+                  // scrolling buttons (move pad first).
+                  final height = constraints.maxHeight;
+                  final cubeSize = (height * 0.30).clamp(150.0, 300.0);
+                  final netHeight = (height * 0.22).clamp(100.0, 240.0);
+                  final netWidth = math.min(
+                    netHeight * 4 / 3,
+                    constraints.maxWidth - 32,
+                  );
+                  return Column(
+                    children: [
+                      // Pinned: the cube and the net stay in view while the
+                      // buttons below scroll, so every turn can be watched.
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Rubik Solver',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Text(
+                                    solved
+                                        ? 'Khối đã được giải'
+                                        : 'Khối đang bị xáo trộn',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: solved
+                                          ? Colors.green.shade700
+                                          : theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                solved
-                                    ? 'Khối đã được giải'
-                                    : 'Khối đang bị xáo trộn',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: solved
-                                      ? Colors.green.shade700
-                                      : theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Thư viện công thức',
-                          onPressed: () =>
-                              Navigator.of(context)
+                            ),
+                            IconButton(
+                              tooltip: 'Thư viện công thức',
+                              onPressed: () => Navigator.of(context)
                                   .pushNamed(AlgorithmLibraryScreen.routeName),
-                          icon: const Icon(Icons.menu_book),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    height: cubeSize,
-                    child: Center(
-                      child: SizedBox(
-                        width: cubeSize,
-                        child: AnimatedCubeView(
-                          controller: _animator,
-                          onReorient: _reorient,
+                              icon: const Icon(Icons.menu_book),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                  _RecentMoves(moves: session.moves),
-                  const Divider(height: 12),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                      children: [
-                        _MovePad(onMove: _turn),
-                        const SizedBox(height: 8),
-                        const SpeedSelector(),
-                        const SizedBox(height: 16),
-                        CubeNetView(
-                          state: session.cube,
+                      SizedBox(
+                        height: cubeSize,
+                        child: Center(
+                          child: SizedBox(
+                            width: cubeSize,
+                            child: AnimatedCubeView(
+                              controller: _animator,
+                              onReorient: _reorient,
+                            ),
+                          ),
+                        ),
+                      ),
+                      _RecentMoves(moves: session.moves),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: netWidth,
+                        child: _AnimatedNet(
+                          animator: _animator,
                           showFaceLabels: ref.watch(faceLabelsProvider),
                         ),
-                        const SizedBox(height: 16),
-                        Row(
+                      ),
+                      const Divider(height: 12),
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                           children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: controller.scramble,
-                                icon: const Icon(Icons.shuffle),
-                                label: const Text('Xáo trộn'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: controller.reset,
-                                icon: const Icon(Icons.restart_alt),
-                                label: const Text('Đặt lại'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    Navigator.of(context)
+                            _MovePad(onMove: _turn),
+                            const SizedBox(height: 8),
+                            const SpeedSelector(),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: controller.scramble,
+                                    icon: const Icon(Icons.shuffle),
+                                    label: const Text('Xáo trộn'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: controller.reset,
+                                    icon: const Icon(Icons.restart_alt),
+                                    label: const Text('Đặt lại'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => Navigator.of(context)
                                         .pushNamed(NetEditorScreen.routeName),
-                                icon: const Icon(Icons.edit),
-                                label: const Text('Nhập màu'),
-                              ),
+                                    icon: const Icon(Icons.edit),
+                                    label: const Text('Nhập màu'),
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  Navigator.of(context)
+                                      .pushNamed(ScanScreen.routeName),
+                              icon: const Icon(Icons.camera_alt),
+                              label: const Text('Quét khối bằng camera'),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: solved
+                                        ? null
+                                        : () => _openGuide(
+                                            session.cube,
+                                            SolveMode.learn,
+                                          ),
+                                    icon: Icon(SolveMode.learn.icon),
+                                    label: const Text('Học cách giải'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton.tonalIcon(
+                                    onPressed: solved
+                                        ? null
+                                        : () => _openGuide(
+                                            session.cube,
+                                            SolveMode.quick,
+                                          ),
+                                    icon: Icon(SolveMode.quick.icon),
+                                    label: const Text('Giải nhanh'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (session.scramble.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              _NotationCard(
+                                title: 'Chuỗi xáo trộn',
+                                moves: session.scramble,
+                              ),
+                            ],
+                            if (session.moves.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              _NotationCard(
+                                title: 'Các bước đã xoay',
+                                moves: session.moves,
+                              ),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              Navigator.of(context)
-                                  .pushNamed(ScanScreen.routeName),
-                          icon: const Icon(Icons.camera_alt),
-                          label: const Text('Quét khối bằng camera'),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: solved
-                                    ? null
-                                    : () => _openGuide(
-                                        session.cube,
-                                        SolveMode.learn,
-                                      ),
-                                icon: Icon(SolveMode.learn.icon),
-                                label: const Text('Học cách giải'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: FilledButton.tonalIcon(
-                                onPressed: solved
-                                    ? null
-                                    : () => _openGuide(
-                                        session.cube,
-                                        SolveMode.quick,
-                                      ),
-                                icon: Icon(SolveMode.quick.icon),
-                                label: const Text('Giải nhanh'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (session.scramble.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          _NotationCard(
-                            title: 'Chuỗi xáo trộn',
-                            moves: session.scramble,
-                          ),
-                        ],
-                        if (session.moves.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          _NotationCard(
-                            title: 'Các bước đã xoay',
-                            moves: session.moves,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -301,6 +313,43 @@ class _RecentMoves extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The flat net, following the 3D cube: it changes as each animated turn
+/// finishes (not ahead of the animation), and only then rebuilds.
+class _AnimatedNet extends StatefulWidget {
+  const _AnimatedNet({required this.animator, required this.showFaceLabels});
+
+  final CubeAnimationController animator;
+  final bool showFaceLabels;
+
+  @override
+  State<_AnimatedNet> createState() => _AnimatedNetState();
+}
+
+class _AnimatedNetState extends State<_AnimatedNet> {
+  late CubeState _shown = widget.animator.displayed;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.animator.addListener(_onAnimation);
+  }
+
+  @override
+  void dispose() {
+    widget.animator.removeListener(_onAnimation);
+    super.dispose();
+  }
+
+  void _onAnimation() {
+    final displayed = widget.animator.displayed;
+    if (displayed != _shown) setState(() => _shown = displayed);
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      CubeNetView(state: _shown, showFaceLabels: widget.showFaceLabels);
 }
 
 class _MovePad extends StatelessWidget {

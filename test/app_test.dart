@@ -8,6 +8,7 @@ import 'package:rubik_solver/features/input/net_editor_screen.dart';
 import 'package:rubik_solver/features/viewer3d/cube_painter.dart';
 import 'package:rubik_solver/features/viewer3d/cube_scene.dart';
 import 'package:rubik_solver/features/viewer3d/cube_view.dart';
+import 'package:rubik_solver/shared/widgets/cube_net_view.dart';
 
 void main() {
   final solved = CubeState.solved();
@@ -333,32 +334,39 @@ void main() {
     expect(turned, cube.applyAlgorithm('R'));
   });
 
-  testWidgets('phone screen: the cube stays in view next to the move pad', (
-    tester,
-  ) async {
-    tester.view
-      ..physicalSize = const Size(412 * 3, 915 * 3)
-      ..devicePixelRatio = 3;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(const ProviderScope(child: RubikApp()));
-    await tester.pumpAndSettle();
+  for (final (width, height) in [(412.0, 915.0), (360.0, 640.0)]) {
+    testWidgets('${width.round()}×${height.round()}: cube, net and move pad '
+        'are all in view', (tester) async {
+      tester.view
+        ..physicalSize = Size(width * 3, height * 3)
+        ..devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(const ProviderScope(child: RubikApp()));
+      await tester.pumpAndSettle();
 
-    const screen = Rect.fromLTWH(0, 0, 412, 915);
-    bool onScreen(Finder f) => screen.contains(tester.getRect(f).center);
-    final cube = find.byType(CubeView);
-    final r = find.widgetWithText(OutlinedButton, 'R');
-    expect(onScreen(cube) && onScreen(r), isTrue);
+      final screen = Rect.fromLTWH(0, 0, width, height);
+      bool onScreen(Finder f) => screen.contains(tester.getRect(f).center);
+      final cube = find.byType(CubeView);
+      final net = find.byType(CubeNetView);
+      final r = find.widgetWithText(OutlinedButton, 'R');
+      expect(onScreen(cube), isTrue);
+      expect(onScreen(net), isTrue);
+      expect(onScreen(r), isTrue);
 
-    await tester.tap(r);
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(painter(tester).turn, isNotNull, reason: 'turning in view');
-    await tester.pumpAndSettle();
-    expect(find.text('R'), findsWidgets);
+      // The net follows the 3D cube: it changes when the turn finishes.
+      CubeState netState() => tester.widget<CubeNetView>(net).state;
+      await tester.tap(r);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(painter(tester).turn, isNotNull, reason: 'turning in view');
+      expect(netState(), solved, reason: 'not ahead of the animation');
+      await tester.pumpAndSettle();
+      expect(netState(), solved.applyAlgorithm('R'));
 
-    // Scrolling the buttons leaves the cube where it is.
-    final before = tester.getRect(cube);
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pumpAndSettle();
-    expect(tester.getRect(cube), before);
-  });
+      // Scrolling the buttons leaves the cube and the net where they are.
+      final before = (tester.getRect(cube), tester.getRect(net));
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect((tester.getRect(cube), tester.getRect(net)), before);
+    });
+  }
 }
