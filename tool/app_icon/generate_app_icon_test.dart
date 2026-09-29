@@ -36,21 +36,22 @@ void main() {
     await _save('icon.png', (canvas) {
       _paintBackground(canvas);
       _paintCube(canvas, cubeFraction: 0.78, shadow: true);
+      _paintDogBadge(canvas, cubeFraction: 0.78);
     });
 
     // Adaptive icon: the launcher masks it, so the cube must stay inside
     // the central safe zone: a circle 66 of 108 dp across.
     await _save('icon_background.png', _paintBackground);
-    await _save(
-      'icon_foreground.png',
-      (canvas) => _paintCube(canvas, cubeFraction: 0.47, shadow: true),
-    );
+    await _save('icon_foreground.png', (canvas) {
+      _paintCube(canvas, cubeFraction: 0.47, shadow: true);
+      _paintDogBadge(canvas, cubeFraction: 0.47);
+    });
 
     // Android 13 themed icon: one flat color, drawn by the system.
-    await _save(
-      'icon_monochrome.png',
-      (canvas) => _paintCube(canvas, cubeFraction: 0.47, monochrome: true),
-    );
+    await _save('icon_monochrome.png', (canvas) {
+      _paintCube(canvas, cubeFraction: 0.47, monochrome: true);
+      _paintDogBadge(canvas, cubeFraction: 0.47, monochrome: true);
+    });
   });
 }
 
@@ -59,11 +60,10 @@ void _paintBackground(Canvas canvas) {
   canvas.drawRect(
     rect,
     Paint()
-      ..shader = Gradient.linear(
-        rect.topLeft,
-        rect.bottomRight,
-        const [_gradientStart, _gradientEnd],
-      ),
+      ..shader = Gradient.linear(rect.topLeft, rect.bottomRight, const [
+        _gradientStart,
+        _gradientEnd,
+      ]),
   );
   // Soft light from the top left.
   canvas.drawCircle(
@@ -154,6 +154,190 @@ void _paintCube(
     }
   }
   canvas.restore();
+}
+
+// Dog badge: the author's mark, bottom right, overlapping the cube's corner
+// like a stamp (a true corner would be cut off by round launcher masks).
+
+const _badgeRing = _gradientEnd;
+const _fur = Color(0xFFE8872E);
+const _cream = Color(0xFFFFE9CF);
+const _dark = Color(0xFF2B2118);
+
+void _paintDogBadge(
+  Canvas canvas, {
+  required double cubeFraction,
+  bool monochrome = false,
+}) {
+  final cube = _size * cubeFraction;
+  final center = Offset(_size / 2, _size / 2) + Offset(1, 1) * cube * 0.34;
+  final radius = cube * 0.17;
+
+  canvas
+    ..save()
+    ..translate(center.dx, center.dy)
+    ..scale(radius);
+
+  if (monochrome) {
+    // A stamp: solid disc, the dog's head cut out of it, and its muzzle,
+    // eyes, nose and mouth drawn back in (a bare head outline reads as a
+    // cat).
+    final clear = Paint()..blendMode = BlendMode.clear;
+    final solid = Paint()..color = const Color(0xFFFFFFFF);
+    canvas
+      ..drawCircle(Offset.zero, 1.12, clear)
+      ..drawCircle(Offset.zero, 1, solid)
+      ..save()
+      ..translate(0, 0.06)
+      ..scale(0.78);
+    for (final ear in _ears) {
+      canvas.drawPath(ear, clear);
+    }
+    canvas.drawPath(_head, clear);
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, 0.34), width: 0.78, height: 0.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.06
+        ..color = const Color(0xFFFFFFFF),
+    );
+    _paintFace(
+      canvas,
+      eyes: solid,
+      nose: solid,
+      mouth: Paint()
+        ..color = const Color(0xFFFFFFFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.06
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas
+      ..restore()
+      ..restore();
+    return;
+  }
+
+  canvas
+    ..drawCircle(
+      const Offset(0, 0.08),
+      1.02,
+      Paint()
+        ..color = const Color(0x66000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.08),
+    )
+    ..drawCircle(Offset.zero, 1, Paint()..color = const Color(0xFFFFFFFF))
+    ..drawCircle(
+      Offset.zero,
+      0.95,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.1
+        ..color = _badgeRing,
+    )
+    ..save()
+    ..translate(0, 0.06)
+    ..scale(0.78);
+
+  final fur = Paint()..color = _fur;
+  final cream = Paint()..color = _cream;
+  for (final ear in _ears) {
+    canvas.drawPath(ear, fur);
+  }
+  for (final inner in _innerEars) {
+    canvas.drawPath(inner, cream);
+  }
+  canvas.drawPath(_head, fur);
+  // Shiba markings: cream cheeks, muzzle and eyebrow dots.
+  for (final x in [-0.3, 0.3]) {
+    canvas
+      ..drawOval(
+        Rect.fromCenter(center: Offset(x, 0.24), width: 0.52, height: 0.42),
+        cream,
+      )
+      ..drawOval(
+        Rect.fromCenter(
+          center: Offset(x * 0.8, -0.17),
+          width: 0.16,
+          height: 0.1,
+        ),
+        cream,
+      );
+  }
+  canvas.drawOval(
+    Rect.fromCenter(center: const Offset(0, 0.34), width: 0.78, height: 0.5),
+    cream,
+  );
+  final dark = Paint()..color = _dark;
+  _paintFace(
+    canvas,
+    eyes: dark,
+    nose: dark,
+    mouth: Paint()
+      ..color = _dark
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.045
+      ..strokeCap = StrokeCap.round,
+  );
+  // Eye highlights.
+  for (final x in [-0.23, 0.27]) {
+    canvas.drawCircle(
+      Offset(x, -0.005),
+      0.024,
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
+  }
+  canvas
+    ..restore()
+    ..restore();
+}
+
+final List<Path> _ears = [
+  for (final side in [-1.0, 1.0])
+    Path()
+      ..moveTo(side * 0.64, -0.08)
+      ..lineTo(side * 0.6, -0.8)
+      ..quadraticBezierTo(side * 0.4, -0.64, side * 0.16, -0.46)
+      ..close(),
+];
+
+final List<Path> _innerEars = [
+  for (final side in [-1.0, 1.0])
+    Path()
+      ..moveTo(side * 0.54, -0.22)
+      ..lineTo(side * 0.52, -0.62)
+      ..quadraticBezierTo(side * 0.4, -0.52, side * 0.28, -0.44)
+      ..close(),
+];
+
+final Path _head = Path()
+  ..addOval(
+    Rect.fromCenter(center: const Offset(0, 0.08), width: 1.34, height: 1.1),
+  );
+
+void _paintFace(
+  Canvas canvas, {
+  required Paint eyes,
+  required Paint nose,
+  required Paint? mouth,
+}) {
+  for (final x in [-0.25, 0.25]) {
+    canvas.drawCircle(Offset(x, 0.02), 0.08, eyes);
+  }
+  canvas.drawOval(
+    Rect.fromCenter(center: const Offset(0, 0.2), width: 0.22, height: 0.14),
+    nose,
+  );
+  if (mouth != null) {
+    canvas.drawPath(
+      Path()
+        ..moveTo(0, 0.25)
+        ..lineTo(0, 0.32)
+        ..moveTo(-0.15, 0.33)
+        ..quadraticBezierTo(-0.07, 0.43, 0, 0.32)
+        ..quadraticBezierTo(0.07, 0.43, 0.15, 0.33),
+      mouth,
+    );
+  }
 }
 
 Future<void> _save(String name, void Function(Canvas canvas) paint) async {
