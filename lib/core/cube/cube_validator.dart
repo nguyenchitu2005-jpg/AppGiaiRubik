@@ -92,6 +92,17 @@ class PermutationParity extends CubeIssue {
       'Hãy kiểm tra lại màu đã nhập.';
 }
 
+/// Thrown by solvers when asked to solve a cube that cannot exist.
+class UnsolvableCubeException implements Exception {
+  const UnsolvableCubeException(this.issues);
+
+  final List<CubeIssue> issues;
+
+  @override
+  String toString() =>
+      'UnsolvableCubeException: ${issues.map((i) => i.message).join(' ')}';
+}
+
 class CubeValidation {
   const CubeValidation(this.issues, this.cubie);
 

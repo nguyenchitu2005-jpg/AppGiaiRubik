@@ -6,15 +6,7 @@ import '../cube/cube_state.dart';
 import '../cube/cube_validator.dart';
 import '../cube/move.dart';
 
-class UnsolvableCubeException implements Exception {
-  const UnsolvableCubeException(this.issues);
-
-  final List<CubeIssue> issues;
-
-  @override
-  String toString() =>
-      'UnsolvableCubeException: ${issues.map((i) => i.message).join(' ')}';
-}
+export '../cube/cube_validator.dart' show UnsolvableCubeException;
 
 /// Short solutions (≈20 moves) using Kociemba's two-phase algorithm, via
 /// the `cuber` package. Solutions are not explained; see the beginner
