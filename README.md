@@ -8,6 +8,8 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 
 ## Tiến độ
 
+Chi tiết (các yêu cầu phát sinh, việc đang chờ, kế hoạch tuần 10): [docs/KE_HOACH.md](docs/KE_HOACH.md)
+
 | Tuần | Nội dung | Trạng thái |
 |---|---|---|
 | 1 | Phần lõi xử lý khối (54 ô màu, phép xoay, biểu diễn góc/cạnh) | Xong |
@@ -16,8 +18,8 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 | 4 | Kiểm tra khối hợp lệ và chế độ Giải nhanh (Kociemba) | Xong |
 | 5–6 | Chế độ Học (phương pháp tầng) | Xong |
 | 7 | Màn hình hướng dẫn giải và thư viện công thức | Xong |
-| 8–9 | Quét camera và nhận diện màu | Xong (cần thử trên máy thật) |
-| 10 | Hoàn thiện, build bản phát hành | |
+| 8–9 | Quét camera và nhận diện màu | Code xong, chờ thử camera trên máy thật |
+| 10 | Hoàn thiện, build bản phát hành | Tạm dừng (đợi kết quả thử camera) |
 
 ## Chạy dự án
 
