@@ -27,6 +27,7 @@ class RubikApp extends StatelessWidget {
         NetEditorScreen.routeName: (_) => const NetEditorScreen(),
         AlgorithmLibraryScreen.routeName: (_) => const AlgorithmLibraryScreen(),
         ScanScreen.routeName: (_) => const ScanScreen(),
+        ScanScreen.solveRouteName: (_) => const ScanScreen(solveAfter: true),
         TimerScreen.routeName: (_) => const TimerScreen(),
         ScrambleScreen.routeName: (_) => const ScrambleScreen(),
         NotationScreen.routeName: (_) => const NotationScreen(),

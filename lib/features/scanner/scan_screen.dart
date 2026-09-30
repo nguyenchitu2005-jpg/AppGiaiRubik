@@ -1,226 +1,77 @@
-import 'dart:async';
-import 'dart:io' show File;
 import 'dart:math';
-import 'dart:ui' as ui;
 
-import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/cube/face.dart';
-import '../../core/vision/color_math.dart';
 import '../../core/vision/scan_assembler.dart';
-import '../../core/vision/yuv_image.dart';
 import '../../shared/cube_palette.dart';
 import '../../shared/platform_support.dart';
+import '../camera_solve/camera_solve_screen.dart';
 import '../input/net_editor_screen.dart';
+import 'camera_feed.dart';
 import 'scan_controller.dart';
 
-/// Scans the six faces with the back camera, then opens the color editor
-/// with the result so the user can check and fix it.
+/// Scans the six faces, then opens the color editor with the result so the
+/// user can check and fix it; or, with [solveAfter], goes on to solving the
+/// cube along with the camera.
 ///
 /// On phones the colors are read live from the camera's frames. In a
-/// browser and on Windows the camera plugin has no live frames: the user
-/// takes a photo of each face instead.
+/// browser and on Windows the camera plugin has no live frames: photos are
+/// taken instead.
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key});
+  const ScanScreen({super.key, this.solveAfter = false});
+
+  /// Scan to solve along with the camera (the camera facing the user).
+  final bool solveAfter;
 
   static const routeName = '/scan';
+
+  /// Scanning, then solving along with the camera.
+  static const solveRouteName = '/camera-solve';
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
-  /// The grid is a square this wide (fraction of the preview width).
-  static const _gridWidth = 0.7;
-
-  /// Give up opening the camera after this long (camera services can hang).
-  static const _openTimeout = Duration(seconds: 5);
-
-  /// Frames are analyzed at most this often.
-  static const _analyzeEvery = Duration(milliseconds: 100);
-
+class _ScanScreenState extends State<ScanScreen> {
   final ScanController _scan = ScanController();
   final Stopwatch _clock = Stopwatch()..start();
-  CameraController? _camera;
-  String? _error;
+  final GlobalKey<CameraFeedState> _feed = GlobalKey();
 
   /// Faces are photographed (no live frames on this platform).
   bool _photoMode = false;
+  bool _cameraReady = false;
 
   /// A photo is being taken and read.
   bool _busy = false;
 
-  /// Where frames cannot be streamed, a photo is taken this often to read
-  /// the colors live (and capture by itself).
-  static const _photoEvery = Duration(milliseconds: 700);
-  Timer? _poll;
-  bool _polling = false;
-
   /// Faces captured so far, to notice each new one.
   int _capturedCount = 0;
-  Duration _lastAnalyzed = -_analyzeEvery;
-  bool _analyzing = false;
 
   @override
   void initState() {
     super.initState();
     AppOrientation.lockPortrait();
-    WidgetsBinding.instance.addObserver(this);
     _scan.addListener(_onScanChanged);
-    _openCamera();
   }
 
   @override
   void dispose() {
-    _poll?.cancel();
     AppOrientation.applyDefault();
-    WidgetsBinding.instance.removeObserver(this);
     _scan
       ..removeListener(_onScanChanged)
       ..dispose();
-    _camera?.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final camera = _camera;
-    if (state == AppLifecycleState.inactive && camera != null) {
-      _camera = null;
-      camera.dispose();
-      setState(() {});
-    } else if (state == AppLifecycleState.resumed && _camera == null) {
-      _openCamera();
-    }
-  }
-
-  Future<void> _openCamera() async {
-    try {
-      final cameras = await availableCameras().timeout(_openTimeout);
-      final back = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
-      );
-      final camera = CameraController(
-        back,
-        ResolutionPreset.medium,
-        enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.yuv420,
-      );
-      await camera.initialize().timeout(_openTimeout);
-      if (!mounted) {
-        await camera.dispose();
-        return;
-      }
-      final photoMode = !camera.supportsImageStreaming();
-      if (!photoMode) await camera.startImageStream(_onImage);
-      setState(() {
-        _camera = camera;
-        _photoMode = photoMode;
-        _error = null;
-      });
-      if (photoMode) {
-        _poll?.cancel();
-        _poll = Timer.periodic(_photoEvery, (_) => _pollPhoto());
-      }
-    } on CameraException catch (e) {
-      final denied =
-          e.code.contains('Access') ||
-          e.code.contains('ermission') ||
-          e.code.contains('NotAllowed');
-      setState(
-        () => _error = !denied
-            ? 'Không mở được camera (${e.code}).'
-            : kIsWeb
-            ? 'Trình duyệt chưa được cấp quyền camera. Hãy bấm biểu tượng '
-                  'camera trên thanh địa chỉ, chọn Cho phép, rồi thử lại.'
-            : isWindows
-            ? 'Windows đang chặn camera. Hãy bật trong Cài đặt > Quyền riêng '
-                  'tư & bảo mật > Camera, rồi thử lại.'
-            : 'Ứng dụng chưa được cấp quyền camera. Hãy cho phép trong Cài '
-                  'đặt > Ứng dụng > Rubik Solver > Quyền.',
-      );
-    } catch (_) {
-      setState(() => _error = 'Không tìm thấy camera trên thiết bị này.');
-    }
-  }
-
-  void _onImage(CameraImage image) {
-    final now = _clock.elapsed;
-    final camera = _camera;
-    if (_analyzing || camera == null || now - _lastAnalyzed < _analyzeEvery) {
-      return;
-    }
-    _analyzing = true;
-    _lastAnalyzed = now;
-    try {
-      final samples = GridSampler.sample(
-        _toYuv(image),
-        grid: _gridRect(camera),
-        rotation: camera.description.sensorOrientation,
-      );
-      _scan.addFrame(samples, now);
-    } finally {
-      _analyzing = false;
-    }
-  }
-
-  /// Takes a photo and reads the 9 colors inside the grid.
-  Future<List<Rgb>> _readPhoto(CameraController camera) async {
-    final photo = await camera.takePicture();
-    final bytes = await photo.readAsBytes();
-    // Windows saves each photo to a file: do not let them pile up.
-    if (!kIsWeb) File(photo.path).delete().ignore();
-    final codec = await ui.instantiateImageCodec(bytes);
-    final image = (await codec.getNextFrame()).image;
-    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    final samples = GridSampler.sample(
-      RgbaImage(
-        width: image.width,
-        height: image.height,
-        bytes: data!.buffer.asUint8List(),
-      ),
-      grid: _gridRect(camera),
-      rotation: 0,
-      // Windows shows the webcam mirrored but takes photos unmirrored.
-      mirrored: isWindows,
-    );
-    image.dispose();
-    return samples;
-  }
-
-  /// A photo read like a streamed frame: live colors, and the automatic
-  /// capture once the face holds still.
-  Future<void> _pollPhoto() async {
-    final camera = _camera;
-    if (camera == null || _busy || _polling || _scan.isComplete) return;
-    _polling = true;
-    try {
-      final samples = await _readPhoto(camera);
-      if (mounted && _camera == camera && !_busy) {
-        _scan.addFrame(samples, _clock.elapsed);
-      }
-    } catch (_) {
-      // A missed photo is simply skipped.
-    } finally {
-      _polling = false;
-    }
   }
 
   /// Takes a photo of the face in the grid and captures its 9 colors.
   Future<void> _capturePhoto() async {
-    final camera = _camera;
-    if (camera == null || _busy) return;
+    final feed = _feed.currentState;
+    if (feed == null || _busy) return;
     setState(() => _busy = true);
     try {
-      // Wait for a photo being taken for the live colors to finish.
-      while (_polling) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-      }
-      _scan.captureSamples(await _readPhoto(camera));
+      _scan.captureSamples(await feed.takePhoto());
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -230,38 +81,6 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       if (mounted) setState(() => _busy = false);
     }
   }
-
-  /// The grid square, in normalized coordinates of the upright preview.
-  Rect _gridRect(CameraController camera) {
-    if (_photoMode) {
-      // The preview is shown as the camera gives it, aspectRatio wide.
-      final aspect = camera.value.aspectRatio;
-      final (width, height) = aspect >= 1
-          ? (_gridWidth / aspect, _gridWidth)
-          : (_gridWidth, _gridWidth * aspect);
-      return Rect.fromLTWH((1 - width) / 2, (1 - height) / 2, width, height);
-    }
-    // The sensor is landscape; upright, the preview is 1/aspectRatio wide.
-    final widthOverHeight = 1 / camera.value.aspectRatio;
-    final height = _gridWidth * widthOverHeight;
-    return Rect.fromLTWH(
-      (1 - _gridWidth) / 2,
-      (1 - height) / 2,
-      _gridWidth,
-      height,
-    );
-  }
-
-  static YuvImage _toYuv(CameraImage image) => YuvImage(
-    width: image.width,
-    height: image.height,
-    y: image.planes[0].bytes,
-    yRowStride: image.planes[0].bytesPerRow,
-    u: image.planes[1].bytes,
-    v: image.planes[2].bytes,
-    uvRowStride: image.planes[1].bytesPerRow,
-    uvPixelStride: image.planes[1].bytesPerPixel ?? 1,
-  );
 
   void _onScanChanged() {
     if (!mounted) return;
@@ -283,7 +102,6 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
     _capturedCount = _scan.stepIndex;
     if (_scan.isComplete) {
-      _poll?.cancel();
       _finish(_scan.assemble());
     } else {
       setState(() {});
@@ -291,12 +109,21 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   void _finish(ScanResult result) {
-    _camera?.stopImageStream().ignore();
+    final navigator = Navigator.of(context);
+    // Solving along: a valid scan goes straight to it.
+    if (widget.solveAfter && result.validation.isValid) {
+      navigator.pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => CameraSolveScreen(start: result.state, scan: result),
+        ),
+      );
+      return;
+    }
     final turned = result.rotatedFaces.keys
         .map((f) => 'tâm ${f.colorName.toLowerCase()}')
         .join(', ');
     final notice = [
-      if (result.rotatedFaces.isNotEmpty)
+      if (result.rotatedFaces.isNotEmpty && result.cameraTurns == 0)
         'Đã tự xoay lại mặt $turned vì có vẻ bạn cầm lệch hướng.',
       if (!result.validation.isValid)
         'Kết quả quét chưa hợp lệ: '
@@ -305,12 +132,21 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       if (result.validation.isValid)
         'Hãy so với khối thật; nếu có ô sai, chọn màu đúng và chạm vào ô đó.',
     ].join('\n');
-    Navigator.of(context).pushReplacement(
+    navigator.pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => NetEditorScreen(
           initial: result.state,
           title: 'Kiểm tra kết quả quét',
           notice: notice,
+          doneLabel: widget.solveAfter ? 'Giải cùng camera' : null,
+          onDone: widget.solveAfter
+              ? (context, cube) => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        CameraSolveScreen(start: cube, scan: result),
+                  ),
+                )
+              : null,
         ),
       ),
     );
@@ -320,9 +156,14 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final step = _scan.step;
-    final camera = _camera;
     return Scaffold(
-      appBar: AppBar(title: const Text('Quét khối bằng camera')),
+      appBar: AppBar(
+        title: Text(
+          widget.solveAfter
+              ? 'Quét để giải cùng camera'
+              : 'Quét khối bằng camera',
+        ),
+      ),
       body: SafeArea(
         // Keep the end of the page clear of the system navigation bar
         // (Android draws edge to edge).
@@ -333,6 +174,15 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (widget.solveAfter) ...[
+                  Text(
+                    'Quét 6 mặt, rồi app đọc từng nước giải và nhìn khối qua '
+                    'camera để biết bạn đã xoay đúng chưa. Nên dựng máy trước '
+                    'mặt, camera hướng về phía bạn.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 _FaceProgress(scan: _scan),
                 const SizedBox(height: 12),
                 if (step != null)
@@ -341,54 +191,24 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     style: theme.textTheme.titleSmall,
                   ),
                 const SizedBox(height: 12),
-                if (_error != null)
-                  _CameraError(message: _error!, onRetry: _openCamera)
-                else if (camera == null || !camera.value.isInitialized)
-                  const AspectRatio(
-                    aspectRatio: 3 / 4,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
+                CameraFeed(
+                  key: _feed,
+                  clock: _clock,
+                  preferFront: widget.solveAfter,
+                  active: !_scan.isComplete && !_busy,
+                  live: _scan.live,
+                  stable: _scan.isStable,
+                  onSamples: _scan.addFrame,
+                  onReady: (photoMode) => setState(() {
+                    _photoMode = photoMode;
+                    _cameraReady = true;
+                  }),
                   // On a computer screen keep the capture button in view:
                   // the preview gets the height the rest leaves.
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: _photoMode
-                            ? max(
-                                200.0,
-                                MediaQuery.sizeOf(context).height - 360,
-                              )
-                            : double.infinity,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: AspectRatio(
-                          // Phones: the landscape sensor shown upright. Browser and
-                          // Windows: the picture as the camera gives it.
-                          aspectRatio: _photoMode
-                              ? camera.value.aspectRatio
-                              : 1 / camera.value.aspectRatio,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (_photoMode)
-                                camera.buildPreview()
-                              else
-                                CameraPreview(camera),
-                              CustomPaint(
-                                painter: _GridOverlay(
-                                  grid: _gridRect(camera),
-                                  live: _scan.live,
-                                  stable: _scan.isStable,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  maxHeight: _photoMode
+                      ? max(200.0, MediaQuery.sizeOf(context).height - 360)
+                      : double.infinity,
+                ),
                 const SizedBox(height: 8),
                 if (step != null && !_scan.centerMatches)
                   Text(
@@ -440,7 +260,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: _photoMode
-                            ? (camera == null || _busy ? null : _capturePhoto)
+                            ? (!_cameraReady || _busy ? null : _capturePhoto)
                             : (_scan.isStable ? _scan.capture : null),
                         icon: _busy
                             ? const SizedBox.square(
@@ -455,12 +275,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     ),
                   ],
                 ),
-                TextButton(
-                  onPressed: () =>
-                      Navigator.of(context)
-                          .pushReplacementNamed(NetEditorScreen.routeName),
-                  child: const Text('Không quét được? Nhập màu bằng tay'),
-                ),
+                if (!widget.solveAfter)
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.of(context)
+                            .pushReplacementNamed(NetEditorScreen.routeName),
+                    child: const Text('Không quét được? Nhập màu bằng tay'),
+                  ),
               ],
             ),
           ),
@@ -539,97 +360,6 @@ class _MiniFace extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _GridOverlay extends CustomPainter {
-  _GridOverlay({required this.grid, required this.live, required this.stable});
-
-  final Rect grid;
-  final List<Face>? live;
-  final bool stable;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(
-      grid.left * size.width,
-      grid.top * size.height,
-      grid.width * size.width,
-      grid.height * size.height,
-    );
-    final cell = rect.width / 3;
-    final border = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..color = stable ? Colors.greenAccent : Colors.white;
-    for (var row = 0; row < 3; row++) {
-      for (var col = 0; col < 3; col++) {
-        final cellRect = Rect.fromLTWH(
-          rect.left + col * cell,
-          rect.top + row * cell,
-          cell,
-          cell,
-        ).deflate(4);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(cellRect, const Radius.circular(10)),
-          border,
-        );
-        final guess = live?[row * 3 + col];
-        if (guess != null) {
-          final dot = Rect.fromCenter(
-            center: cellRect.center,
-            width: cell * 0.28,
-            height: cell * 0.28,
-          );
-          canvas
-            ..drawRRect(
-              RRect.fromRectAndRadius(dot, const Radius.circular(6)),
-              Paint()..color = CubePalette.of(guess),
-            )
-            ..drawRRect(
-              RRect.fromRectAndRadius(dot, const Radius.circular(6)),
-              Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 2
-                ..color = Colors.black54,
-            );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_GridOverlay old) =>
-      old.grid != grid || old.live != live || old.stable != stable;
-}
-
-class _CameraError extends StatelessWidget {
-  const _CameraError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(
-              Icons.no_photography,
-              size: 48,
-              color: theme.colorScheme.error,
-            ),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            OutlinedButton(onPressed: onRetry, child: const Text('Thử lại')),
-          ],
-        ),
-      ),
     );
   }
 }

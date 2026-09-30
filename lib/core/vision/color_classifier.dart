@@ -1,3 +1,4 @@
+import '../cube/cube_state.dart';
 import '../cube/face.dart';
 import 'color_math.dart';
 import 'hungarian.dart';
@@ -106,5 +107,51 @@ abstract final class CubeColorAssigner {
       if (a[i] != b[i]) return false;
     }
     return true;
+  }
+}
+
+/// Reads sticker colors the way this cube looked when it was scanned: each
+/// color is the average chromaticity of its 9 scanned stickers, so the
+/// user's own red and orange (and lighting) are told apart better than by
+/// fixed hue ranges.
+class StickerPalette {
+  StickerPalette._(this._references);
+
+  /// [samples] are the scanned colors in facelet order of [cube].
+  factory StickerPalette.fromScan(CubeState cube, List<Rgb> samples) {
+    final sums = {for (final f in Face.values) f: (0.0, 0.0, 0)};
+    for (var i = 0; i < 54; i++) {
+      final (r, g) = samples[i].chromaticity;
+      final (sr, sg, n) = sums[cube[i]]!;
+      sums[cube[i]] = (sr + r, sg + g, n + 1);
+    }
+    return StickerPalette._({
+      for (final MapEntry(key: face, value: (r, g, n)) in sums.entries)
+        if (n > 0) face: (r / n, g / n),
+    });
+  }
+
+  final Map<Face, (double, double)> _references;
+
+  Face classify(Rgb color) => _ranked(color).first.$1;
+
+  /// Clearly one color: bright enough, much nearer one color than any
+  /// other, and a white bright enough not to be a grey background.
+  bool isClear(Rgb color) {
+    final hsv = color.toHsv();
+    if (hsv.v < 0.22) return false;
+    final ranked = _ranked(color);
+    if (ranked.length < 2) return true;
+    if (ranked.first.$1 == Face.u && hsv.v < 0.5) return false;
+    return ranked[0].$2 <= 0.3 * ranked[1].$2;
+  }
+
+  /// Colors nearest first, with their squared distance.
+  List<(Face, double)> _ranked(Rgb color) {
+    final (r, g) = color.chromaticity;
+    return [
+      for (final MapEntry(key: face, value: (fr, fg)) in _references.entries)
+        (face, (r - fr) * (r - fr) + (g - fg) * (g - fg)),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
   }
 }

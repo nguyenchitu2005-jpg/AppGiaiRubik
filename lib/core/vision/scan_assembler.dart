@@ -3,12 +3,15 @@ import '../cube/cube_validator.dart';
 import '../cube/face.dart';
 import 'color_classifier.dart';
 import 'color_math.dart';
+import 'face_grid.dart';
 
 class ScanResult {
   const ScanResult({
     required this.state,
     required this.validation,
     required this.rotatedFaces,
+    this.mirrored = false,
+    this.samples = const [],
   });
 
   final CubeState state;
@@ -17,6 +20,24 @@ class ScanResult {
   /// Faces that had to be turned (by this many clockwise quarter turns) to
   /// make a valid cube: the user probably held them the wrong way up.
   final Map<Face, int> rotatedFaces;
+
+  /// The camera gave mirrored pictures: every face was flipped back.
+  final bool mirrored;
+
+  /// The 54 colors read, in facelet order of [state] (for recognising the
+  /// same stickers on camera later).
+  final List<Rgb> samples;
+
+  /// How the camera itself turns faces (clockwise quarter turns): the turn
+  /// most faces needed, since one camera turns them all alike.
+  int get cameraTurns {
+    for (var turns = 1; turns < 4; turns++) {
+      if (rotatedFaces.values.where((t) => t == turns).length >= 4) {
+        return turns;
+      }
+    }
+    return 0;
+  }
 }
 
 /// Turns six scanned faces into a cube state.
@@ -26,31 +47,56 @@ abstract final class ScanAssembler {
   static ScanResult assemble(Map<Face, List<Rgb>> faces) {
     final samples = [for (final face in Face.values) ...faces[face]!];
     final colors = CubeColorAssigner.assign(samples);
-    final base = CubeState.fromFacelets(colors);
-    final validation = CubeValidator.validate(base);
-    if (validation.isValid) {
-      return ScanResult(state: base, validation: validation, rotatedFaces: {});
-    }
 
-    // Maybe some faces were scanned turned sideways: try turning them,
-    // fewest turned faces first.
-    final combos = [for (var code = 1; code < 4096; code++) code]
-      ..sort((a, b) => _turnedFaces(a).compareTo(_turnedFaces(b)));
-    for (final code in combos) {
-      var state = base;
+    ScanResult read({required bool mirror, int code = 0}) {
+      final stickers = <Face>[];
+      final oriented = <Rgb>[];
       final turns = <Face, int>{};
       for (final face in Face.values) {
         final quarterTurns = (code >> (face.index * 2)) & 3;
-        if (quarterTurns == 0) continue;
-        turns[face] = quarterTurns;
-        state = _turnFace(state, face, quarterTurns);
+        if (quarterTurns != 0) turns[face] = quarterTurns;
+        final range = face.offset + 9;
+        stickers.addAll(
+          FaceGrid.oriented(
+            colors.sublist(face.offset, range),
+            mirror: mirror,
+            turns: quarterTurns,
+          ),
+        );
+        oriented.addAll(
+          FaceGrid.oriented(
+            samples.sublist(face.offset, range),
+            mirror: mirror,
+            turns: quarterTurns,
+          ),
+        );
       }
-      final check = CubeValidator.validate(state);
-      if (check.isValid) {
-        return ScanResult(state: state, validation: check, rotatedFaces: turns);
+      final state = CubeState.fromFacelets(stickers);
+      return ScanResult(
+        state: state,
+        validation: CubeValidator.validate(state),
+        rotatedFaces: turns,
+        mirrored: mirror,
+        samples: oriented,
+      );
+    }
+
+    final base = read(mirror: false);
+    if (base.validation.isValid) return base;
+
+    // Maybe the camera mirrors its pictures (webcams often do), or some
+    // faces were scanned turned sideways: try flipping and turning them,
+    // fewest turned faces first.
+    final combos = [for (var code = 0; code < 4096; code++) code]
+      ..sort((a, b) => _turnedFaces(a).compareTo(_turnedFaces(b)));
+    for (final code in combos) {
+      for (final mirror in [false, true]) {
+        if (code == 0 && !mirror) continue;
+        final result = read(mirror: mirror, code: code);
+        if (result.validation.isValid) return result;
       }
     }
-    return ScanResult(state: base, validation: validation, rotatedFaces: {});
+    return base;
   }
 
   static int _turnedFaces(int code) {
@@ -59,22 +105,5 @@ abstract final class ScanAssembler {
       if ((code >> (face * 2)) & 3 != 0) count++;
     }
     return count;
-  }
-
-  /// Rotates the 3×3 sticker grid of [face] clockwise (as drawn on the net)
-  /// by [quarterTurns].
-  static CubeState _turnFace(CubeState state, Face face, int quarterTurns) {
-    var grid = [for (var i = 0; i < 9; i++) state[face.offset + i]];
-    for (var t = 0; t < quarterTurns; t++) {
-      grid = [
-        for (var row = 0; row < 3; row++)
-          for (var col = 0; col < 3; col++) grid[(2 - col) * 3 + row],
-      ];
-    }
-    var result = state;
-    for (var i = 0; i < 9; i++) {
-      result = result.withSticker(face.offset + i, grid[i]);
-    }
-    return result;
   }
 }

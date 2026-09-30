@@ -22,6 +22,8 @@ class NetEditorScreen extends ConsumerStatefulWidget {
     this.initial,
     this.title = 'Nhập màu khối',
     this.notice,
+    this.onDone,
+    this.doneLabel,
   });
 
   /// Cube to start from (e.g. a camera scan); defaults to the session cube.
@@ -31,6 +33,13 @@ class NetEditorScreen extends ConsumerStatefulWidget {
 
   /// Shown above the editor, e.g. what the scanner fixed or doubts.
   final String? notice;
+
+  /// What to do with the finished cube instead of making it the home
+  /// screen's cube (e.g. go on to solving it along with the camera).
+  final void Function(BuildContext context, CubeState cube)? onDone;
+
+  /// The finish button's label with [onDone].
+  final String? doneLabel;
 
   static const routeName = '/input';
 
@@ -117,6 +126,11 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
           ],
         ),
       );
+      return;
+    }
+    final onDone = widget.onDone;
+    if (onDone != null) {
+      onDone(context, _cube);
       return;
     }
     ref.read(cubeSessionProvider.notifier).setCube(_cube);
@@ -214,7 +228,7 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
               FilledButton.icon(
                 onPressed: complete ? _finish : null,
                 icon: const Icon(Icons.check),
-                label: const Text('Dùng trạng thái này'),
+                label: Text(widget.doneLabel ?? 'Dùng trạng thái này'),
               ),
             ];
 

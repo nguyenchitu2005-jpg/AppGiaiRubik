@@ -9,6 +9,7 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
   - **Pro**: *CFOP (phương pháp Fridrich)*, gồm Cross → F2L → OLL → PLL với **công thức nâng cao** (41 F2L + 57 OLL + 21 PLL), khoảng 60 nước
   - **Master**: *Phương pháp ZB (Zborowski–Bruchem)*, gồm Cross → F2L 3 cặp → **ZBLS** (302) → **ZBLL** (472), khoảng 52 nước
 - **Giải nhanh**: lời giải ngắn nhất do máy tính tìm (Kociemba, khoảng 20 nước)
+- **Giải cùng camera** 🎙️: quét 6 mặt, app **đọc to từng nước** ("R phẩy", "U hai"…) và hiện công thức trên màn hình; camera nhìn mặt trước của khối để biết bạn đã xoay xong, rồi đọc nước tiếp. Xoay nhầm thì app nhận ra và chỉ cách sửa; có bấm giờ, chế độ đọc 3 nước một lần cho người giải nhanh
 - **Gợi ý 💡**: bấm bóng đèn trên khối 3D để xem bước tiếp theo và công thức cần dùng (theo trình độ đã chọn), hoặc để app xoay giúp
 - **Menu** (góc trái trên):
   - **Ký hiệu & cách xoay** cho người mới: bấm từng ký hiệu (U, R', F2, M, r, x…) để xem khối 3D chỉ hướng rồi xoay, kèm bài luyện đoán ký hiệu
@@ -62,6 +63,7 @@ lib/
   features/guide/     màn hình hướng dẫn: chế độ Học / Giải nhanh, mũi tên chỉ hướng xoay
   features/library/   thư viện công thức kèm minh hoạ
   features/scanner/   quét 6 mặt bằng camera
+  features/camera_solve/ giải cùng camera: đọc từng nước, camera theo dõi
   shared/             bảng màu và widget dùng chung (sơ đồ 2D)
   state/              quản lý trạng thái (Riverpod)
 test/                 unit test và widget test

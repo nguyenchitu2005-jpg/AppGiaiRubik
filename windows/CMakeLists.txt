@@ -53,6 +53,22 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 add_subdirectory("runner")
 
 
+# The speech plugin (flutter_tts) needs nuget.exe on the PATH. Without it,
+# fetch the same nuget.exe the audio plugin downloads, so a fresh machine
+# builds as is.
+find_program(NUGET_EXE NAMES nuget)
+if(NOT NUGET_EXE)
+  include(FetchContent)
+  FetchContent_Declare(nuget
+    URL "https://dist.nuget.org/win-x86-commandline/v6.5.0/nuget.exe"
+    URL_HASH SHA256=d5fce5185de92b7356ea9264b997a620e35c6f6c3c061e471e0dc3a84b3d74fd
+    DOWNLOAD_NO_EXTRACT true
+  )
+  FetchContent_MakeAvailable(nuget)
+  set(NUGET_EXE "${nuget_SOURCE_DIR}/nuget.exe" CACHE FILEPATH
+    "nuget.exe for plugins that need it" FORCE)
+endif()
+
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)

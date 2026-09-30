@@ -105,13 +105,21 @@ class AppDrawer extends ConsumerWidget {
               'Tô màu khối của bạn trên sơ đồ',
               NetEditorScreen.routeName,
             ),
-            if (ref.watch(cameraScanSupportedProvider))
+            if (ref.watch(cameraScanSupportedProvider)) ...[
               item(
                 Icons.camera_alt_outlined,
                 'Quét khối bằng camera',
                 'Quét 6 mặt để nhập màu tự động',
                 ScanScreen.routeName,
               ),
+              item(
+                Icons.record_voice_over_outlined,
+                'Giải cùng camera',
+                'Quét khối, app đọc từng nước và nhìn qua camera để hướng '
+                    'dẫn nước tiếp',
+                ScanScreen.solveRouteName,
+              ),
+            ],
             // A browser always loads the latest web version.
             if (!kIsWeb) ...[
               const Divider(),

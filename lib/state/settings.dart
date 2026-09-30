@@ -63,3 +63,15 @@ class SolveLevelController extends Notifier<SolveMethod> {
 final solveLevelProvider = NotifierProvider<SolveLevelController, SolveMethod>(
   SolveLevelController.new,
 );
+
+/// Whether solving along with the camera reads the moves aloud.
+class VoiceGuideController extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void toggle() => state = !state;
+}
+
+final voiceGuideProvider = NotifierProvider<VoiceGuideController, bool>(
+  VoiceGuideController.new,
+);
