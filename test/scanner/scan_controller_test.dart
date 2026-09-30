@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+import 'dart:ui' show Rect;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rubik_solver/core/cube/cube_state.dart';
 import 'package:rubik_solver/core/cube/face.dart';
 import 'package:rubik_solver/core/vision/color_math.dart';
+import 'package:rubik_solver/core/vision/yuv_image.dart';
 import 'package:rubik_solver/features/scanner/scan_controller.dart';
 
 const _colors = {
@@ -70,5 +74,54 @@ void main() {
     final result = scan.assemble();
     expect(result.validation.isValid, isTrue);
     expect(result.state, cube);
+  });
+
+  test('photo mode (web, Windows): one photo per face rebuilds the cube', () {
+    final scan = ScanController();
+    final cube = CubeState.solved().applyAlgorithm("F2 L' U B2 R D' F");
+    for (final step in ScanController.steps) {
+      scan.captureSamples(_face(cube, step.face));
+    }
+    expect(scan.isComplete, isTrue);
+    final result = scan.assemble();
+    expect(result.validation.isValid, isTrue);
+    expect(result.state, cube);
+  });
+
+  test('a photo is sampled per sticker; a mirrored preview swaps sides', () {
+    // A 90 × 90 photo of a face: 9 blocks of 30 × 30, each its own color.
+    final cube = CubeState.solved().applyAlgorithm("R U F' L2 D B'");
+    final colors = _face(cube, Face.f);
+    final bytes = Uint8List(90 * 90 * 4);
+    for (var y = 0; y < 90; y++) {
+      for (var x = 0; x < 90; x++) {
+        final c = colors[(y ~/ 30) * 3 + x ~/ 30];
+        bytes.setAll((y * 90 + x) * 4, [
+          c.r.round(),
+          c.g.round(),
+          c.b.round(),
+          255,
+        ]);
+      }
+    }
+    final photo = RgbaImage(width: 90, height: 90, bytes: bytes);
+    const grid = Rect.fromLTWH(0, 0, 1, 1);
+
+    // Rgb has no ==: compare the rounded values.
+    List<String> values(List<Rgb> list) => [for (final c in list) '$c'];
+    final straight = GridSampler.sample(photo, grid: grid, rotation: 0);
+    expect(values(straight), values(colors));
+
+    final mirrored = GridSampler.sample(
+      photo,
+      grid: grid,
+      rotation: 0,
+      mirrored: true,
+    );
+    for (var row = 0; row < 3; row++) {
+      for (var col = 0; col < 3; col++) {
+        expect('${mirrored[row * 3 + col]}', '${colors[row * 3 + (2 - col)]}');
+      }
+    }
   });
 }

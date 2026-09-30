@@ -8,9 +8,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Android or iOS.
 bool get isMobileOs => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
-/// Scanning needs the camera's live frame stream, which the camera plugin
-/// offers on Android and iOS only; desktops get manual color entry.
-final cameraScanSupportedProvider = Provider<bool>((ref) => isMobileOs);
+/// Windows (not in a browser).
+bool get isWindows => !kIsWeb && Platform.isWindows;
+
+/// Camera scanning: from live frames on Android and iOS, from photos in a
+/// browser and on Windows. Other desktops (no camera plugin) get manual
+/// color entry.
+final cameraScanSupportedProvider = Provider<bool>(
+  (ref) => isMobileOs || kIsWeb || isWindows,
+);
 
 /// Orientation rules: phones are held upright; tablets and desktop windows
 /// may rotate, split the screen or resize freely.

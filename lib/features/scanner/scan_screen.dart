@@ -1,4 +1,8 @@
+import 'dart:math';
+import 'dart:ui' as ui;
+
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../core/cube/face.dart';
@@ -11,6 +15,10 @@ import 'scan_controller.dart';
 
 /// Scans the six faces with the back camera, then opens the color editor
 /// with the result so the user can check and fix it.
+///
+/// On phones the colors are read live from the camera's frames. In a
+/// browser and on Windows the camera plugin has no live frames: the user
+/// takes a photo of each face instead.
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
 
@@ -34,6 +42,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   final Stopwatch _clock = Stopwatch()..start();
   CameraController? _camera;
   String? _error;
+
+  /// Faces are photographed (no live frames on this platform).
+  bool _photoMode = false;
+
+  /// A photo is being taken and read.
+  bool _busy = false;
   Duration _lastAnalyzed = -_analyzeEvery;
   bool _analyzing = false;
 
@@ -87,17 +101,29 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         await camera.dispose();
         return;
       }
-      await camera.startImageStream(_onImage);
+      final photoMode = !camera.supportsImageStreaming();
+      if (!photoMode) await camera.startImageStream(_onImage);
       setState(() {
         _camera = camera;
+        _photoMode = photoMode;
         _error = null;
       });
     } on CameraException catch (e) {
+      final denied =
+          e.code.contains('Access') ||
+          e.code.contains('ermission') ||
+          e.code.contains('NotAllowed');
       setState(
-        () => _error = e.code.contains('Access')
-            ? 'Ứng dụng chưa được cấp quyền camera. Hãy cho phép trong Cài '
-                  'đặt > Ứng dụng > Rubik Solver > Quyền.'
-            : 'Không mở được camera (${e.code}).',
+        () => _error = !denied
+            ? 'Không mở được camera (${e.code}).'
+            : kIsWeb
+            ? 'Trình duyệt chưa được cấp quyền camera. Hãy bấm biểu tượng '
+                  'camera trên thanh địa chỉ, chọn Cho phép, rồi thử lại.'
+            : isWindows
+            ? 'Windows đang chặn camera. Hãy bật trong Cài đặt > Quyền riêng '
+                  'tư & bảo mật > Camera, rồi thử lại.'
+            : 'Ứng dụng chưa được cấp quyền camera. Hãy cho phép trong Cài '
+                  'đặt > Ứng dụng > Rubik Solver > Quyền.',
       );
     } catch (_) {
       setState(() => _error = 'Không tìm thấy camera trên thiết bị này.');
@@ -124,8 +150,49 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Takes a photo of the face in the grid and reads its 9 colors.
+  Future<void> _capturePhoto() async {
+    final camera = _camera;
+    if (camera == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final photo = await camera.takePicture();
+      final codec = await ui.instantiateImageCodec(await photo.readAsBytes());
+      final image = (await codec.getNextFrame()).image;
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final samples = GridSampler.sample(
+        RgbaImage(
+          width: image.width,
+          height: image.height,
+          bytes: data!.buffer.asUint8List(),
+        ),
+        grid: _gridRect(camera),
+        rotation: 0,
+        // Windows shows the webcam mirrored but takes photos unmirrored.
+        mirrored: isWindows,
+      );
+      image.dispose();
+      _scan.captureSamples(samples);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Không chụp được ảnh: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// The grid square, in normalized coordinates of the upright preview.
   Rect _gridRect(CameraController camera) {
+    if (_photoMode) {
+      // The preview is shown as the camera gives it, aspectRatio wide.
+      final aspect = camera.value.aspectRatio;
+      final (width, height) = aspect >= 1
+          ? (_gridWidth / aspect, _gridWidth)
+          : (_gridWidth, _gridWidth * aspect);
+      return Rect.fromLTWH((1 - width) / 2, (1 - height) / 2, width, height);
+    }
     // The sensor is landscape; upright, the preview is 1/aspectRatio wide.
     final widthOverHeight = 1 / camera.value.aspectRatio;
     final height = _gridWidth * widthOverHeight;
@@ -194,87 +261,124 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         // Keep the end of the page clear of the system navigation bar
         // (Android draws edge to edge).
         top: false,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _FaceProgress(scan: _scan),
-            const SizedBox(height: 12),
-            if (step != null)
-              Text(
-                'Mặt ${_scan.stepIndex + 1}/6: ${step.instruction}',
-                style: theme.textTheme.titleSmall,
-              ),
-            const SizedBox(height: 12),
-            if (_error != null)
-              _CameraError(message: _error!, onRetry: _openCamera)
-            else if (camera == null || !camera.value.isInitialized)
-              const AspectRatio(
-                aspectRatio: 3 / 4,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: AspectRatio(
-                  aspectRatio: 1 / camera.value.aspectRatio,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CameraPreview(camera),
-                      CustomPaint(
-                        painter: _GridOverlay(
-                          grid: _gridRect(camera),
-                          live: _scan.live,
-                          stable: _scan.isStable,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _FaceProgress(scan: _scan),
+                const SizedBox(height: 12),
+                if (step != null)
+                  Text(
+                    'Mặt ${_scan.stepIndex + 1}/6: ${step.instruction}',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                const SizedBox(height: 12),
+                if (_error != null)
+                  _CameraError(message: _error!, onRetry: _openCamera)
+                else if (camera == null || !camera.value.isInitialized)
+                  const AspectRatio(
+                    aspectRatio: 3 / 4,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  // On a computer screen keep the capture button in view:
+                  // the preview gets the height the rest leaves.
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: _photoMode
+                            ? max(
+                                200.0,
+                                MediaQuery.sizeOf(context).height - 360,
+                              )
+                            : double.infinity,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: AspectRatio(
+                          // Phones: the landscape sensor shown upright. Browser and
+                          // Windows: the picture as the camera gives it.
+                          aspectRatio: _photoMode
+                              ? camera.value.aspectRatio
+                              : 1 / camera.value.aspectRatio,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (_photoMode)
+                                camera.buildPreview()
+                              else
+                                CameraPreview(camera),
+                              CustomPaint(
+                                painter: _GridOverlay(
+                                  grid: _gridRect(camera),
+                                  live: _scan.live,
+                                  stable: _scan.isStable,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
+                const SizedBox(height: 8),
+                if (step != null && !_scan.centerMatches)
+                  Text(
+                    'Tâm đang thấy không giống màu '
+                    '${step.face.colorName.toLowerCase()}: hãy kiểm tra lại mặt '
+                    'đang quét.',
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                Text(
+                  _photoMode
+                      ? 'Căn mặt khối cho vừa lưới, giữ yên rồi bấm "Chụp mặt này".'
+                      : _scan.isStable
+                      ? 'Màu đã ổn định, có thể chụp.'
+                      : 'Giữ yên khối trong khung…',
+                  style: theme.textTheme.bodySmall,
                 ),
-              ),
-            const SizedBox(height: 8),
-            if (step != null && !_scan.centerMatches)
-              Text(
-                'Tâm đang thấy không giống màu '
-                '${step.face.colorName.toLowerCase()}: hãy kiểm tra lại mặt '
-                'đang quét.',
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            Text(
-              _scan.isStable
-                  ? 'Màu đã ổn định, có thể chụp.'
-                  : 'Giữ yên khối trong khung…',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _scan.stepIndex == 0
-                        ? null
-                        : _scan.retakePrevious,
-                    icon: const Icon(Icons.undo),
-                    label: const Text('Chụp lại mặt trước'),
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _scan.stepIndex == 0
+                            ? null
+                            : _scan.retakePrevious,
+                        icon: const Icon(Icons.undo),
+                        label: const Text('Chụp lại mặt trước'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _photoMode
+                            ? (camera == null || _busy ? null : _capturePhoto)
+                            : (_scan.isStable ? _scan.capture : null),
+                        icon: _busy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.camera),
+                        label: const Text('Chụp mặt này'),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _scan.isStable ? _scan.capture : null,
-                    icon: const Icon(Icons.camera),
-                    label: const Text('Chụp mặt này'),
-                  ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context)
+                          .pushReplacementNamed(NetEditorScreen.routeName),
+                  child: const Text('Không quét được? Nhập màu bằng tay'),
                 ),
               ],
             ),
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(context)
-                      .pushReplacementNamed(NetEditorScreen.routeName),
-              child: const Text('Không quét được? Nhập màu bằng tay'),
-            ),
-          ],
+          ),
         ),
       ),
     );

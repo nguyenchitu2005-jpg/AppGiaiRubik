@@ -3,8 +3,16 @@ import 'dart:ui' show Offset, Rect;
 
 import 'color_math.dart';
 
+/// An image whose pixels can be read as colors.
+abstract interface class PixelSource {
+  int get width;
+  int get height;
+
+  Rgb pixel(int x, int y);
+}
+
 /// A YUV 4:2:0 frame as delivered by Android camera image streams.
-class YuvImage {
+class YuvImage implements PixelSource {
   const YuvImage({
     required this.width,
     required this.height,
@@ -16,7 +24,9 @@ class YuvImage {
     required this.uvPixelStride,
   });
 
+  @override
   final int width;
+  @override
   final int height;
   final Uint8List y;
   final int yRowStride;
@@ -26,6 +36,7 @@ class YuvImage {
   final int uvPixelStride;
 
   /// Color of pixel ([x], [y]) (BT.601, full range).
+  @override
   Rgb pixel(int x, int y) {
     final luma = this.y[y * yRowStride + x].toDouble();
     final uvIndex = (y >> 1) * uvRowStride + (x >> 1) * uvPixelStride;
@@ -40,6 +51,32 @@ class YuvImage {
   }
 }
 
+/// A decoded photo: 4 bytes (red, green, blue, alpha) per pixel, row by
+/// row, as taken on the web and on Windows (no live frames there).
+class RgbaImage implements PixelSource {
+  const RgbaImage({
+    required this.width,
+    required this.height,
+    required this.bytes,
+  });
+
+  @override
+  final int width;
+  @override
+  final int height;
+  final Uint8List bytes;
+
+  @override
+  Rgb pixel(int x, int y) {
+    final i = (y * width + x) * 4;
+    return Rgb(
+      bytes[i].toDouble(),
+      bytes[i + 1].toDouble(),
+      bytes[i + 2].toDouble(),
+    );
+  }
+}
+
 /// Reads the 9 sticker colors inside a 3×3 grid drawn over the camera
 /// preview.
 abstract final class GridSampler {
@@ -49,10 +86,14 @@ abstract final class GridSampler {
   ///
   /// Each sticker is sampled in its central [patch] fraction (skipping the
   /// black gaps) and summarized by the per-channel median.
+  ///
+  /// [mirrored]: the preview is shown mirrored but the image is not (a
+  /// Windows webcam), so left and right swap.
   static List<Rgb> sample(
-    YuvImage image, {
+    PixelSource image, {
     required Rect grid,
     required int rotation,
+    bool mirrored = false,
     double patch = 0.45,
     int samplesPerSide = 7,
   }) {
@@ -69,8 +110,9 @@ abstract final class GridSampler {
           for (var j = 0; j < samplesPerSide; j++) {
             final t = (i / (samplesPerSide - 1) - 0.5) * patch;
             final s = (j / (samplesPerSide - 1) - 0.5) * patch;
+            final x0 = center.dx + s * cell;
             final sensor = toSensor(
-              Offset(center.dx + s * cell, center.dy + t * cellHeight),
+              Offset(mirrored ? 1 - x0 : x0, center.dy + t * cellHeight),
               rotation,
             );
             final x = (sensor.dx * (image.width - 1)).round();

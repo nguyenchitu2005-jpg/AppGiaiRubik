@@ -50,7 +50,8 @@ _Cập nhật: 29/09/2026_
 | Phát hành bản **1.1.0** (APK) | `7f71f96` |
 | **Máy tính / web**: bố cục 2 cột khi cửa sổ rộng ≥ 840 px (khối 3D lớn bên trái, điều khiển bên phải; thư viện và xáo trộn dạng lưới); cửa sổ Windows/macOS mặc định 1280×800; web có tiêu đề, mô tả và biểu tượng của app; sửa lỗi chạm "bất kỳ đâu" để dừng đồng hồ chỉ nhận ở cột giữa | `53d9697` |
 | Cửa sổ Windows tự vừa màn hình (125–150%) và căn giữa | `6b886c3` |
-| Menu **Luyện tập**: chọn bộ F2L / OLL / PLL / ZBLS / ZBLL và từng trường hợp (theo nhóm), app xáo ra trường hợp ngẫu nhiên trong số đã chọn, bấm giờ, gợi ý đáp án, thống kê trường hợp chậm nhất | (commit này) |
+| Menu **Luyện tập**: chọn bộ F2L / OLL / PLL / ZBLS / ZBLL và từng trường hợp (theo nhóm), app xáo ra trường hợp ngẫu nhiên trong số đã chọn, bấm giờ, gợi ý đáp án, thống kê trường hợp chậm nhất | `73b839d` |
+| **Quét camera trên web và Windows**: chế độ chụp ảnh (các nền tảng này không có luồng khung hình): mỗi mặt một ảnh, đọc màu 9 ô rồi dùng chung bộ nhận diện màu; Windows sửa lật gương; khung xem trước vừa màn hình | (commit này) |
 | Ký hiệu mặt (U·Trên, F·Trước…) trên khối 3D, luôn đứng thẳng, có nút bật/tắt | `4dbec53` |
 | Nút hoàn tác/làm lại ở màn hình nhập màu. Khối tự về tư thế đứng thẳng sau khi xoay | `36a5956` |
 | Ký hiệu mặt trên sơ đồ 2D | `6568574` |

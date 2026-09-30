@@ -40,6 +40,7 @@ dependencies:
   camera: ^0.12.1
   audioplayers: ^6.8.1
   shared_preferences: ^2.5.5
+  camera_windows: ^0.3.0
 
 dev_dependencies:
   flutter_test:

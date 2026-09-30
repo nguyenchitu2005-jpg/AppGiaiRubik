@@ -99,6 +99,15 @@ class ScanController extends ChangeNotifier {
     _reset();
   }
 
+  /// Records the current face from a single photo's colors (where the
+  /// camera has no live frames: web, Windows).
+  void captureSamples(List<Rgb> samples) {
+    if (isComplete) return;
+    _captured[step!.face] = samples;
+    _stepIndex++;
+    _reset();
+  }
+
   void retakePrevious() {
     if (_stepIndex == 0) return;
     _stepIndex--;
