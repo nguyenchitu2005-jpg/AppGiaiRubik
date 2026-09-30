@@ -3,7 +3,7 @@
 App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 
 - Mô hình **3D** khối Rubik, kéo để xoay, có animation từng bước
-- **Nhập trạng thái khối** bằng cách tô màu trên sơ đồ 2D hoặc **quét 6 mặt bằng camera**
+- **Nhập trạng thái khối** bằng cách tô màu trên sơ đồ 2D hoặc **quét 6 mặt bằng camera** (tự chụp khi nhận rõ màu)
 - Chọn **trình độ**:
   - **Newbie**: *Phương pháp tầng (Layer by Layer)*, 7 giai đoạn với 7 **công thức cơ bản**, có giải thích từng bước
   - **Pro**: *CFOP (phương pháp Fridrich)*, gồm Cross → F2L → OLL → PLL với **công thức nâng cao** (41 F2L + 57 OLL + 21 PLL), khoảng 60 nước

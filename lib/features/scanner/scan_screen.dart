@@ -1,11 +1,15 @@
+import 'dart:async';
+import 'dart:io' show File;
 import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/cube/face.dart';
+import '../../core/vision/color_math.dart';
 import '../../core/vision/scan_assembler.dart';
 import '../../core/vision/yuv_image.dart';
 import '../../shared/cube_palette.dart';
@@ -48,6 +52,15 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   /// A photo is being taken and read.
   bool _busy = false;
+
+  /// Where frames cannot be streamed, a photo is taken this often to read
+  /// the colors live (and capture by itself).
+  static const _photoEvery = Duration(milliseconds: 700);
+  Timer? _poll;
+  bool _polling = false;
+
+  /// Faces captured so far, to notice each new one.
+  int _capturedCount = 0;
   Duration _lastAnalyzed = -_analyzeEvery;
   bool _analyzing = false;
 
@@ -62,6 +75,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _poll?.cancel();
     AppOrientation.applyDefault();
     WidgetsBinding.instance.removeObserver(this);
     _scan
@@ -108,6 +122,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         _photoMode = photoMode;
         _error = null;
       });
+      if (photoMode) {
+        _poll?.cancel();
+        _poll = Timer.periodic(_photoEvery, (_) => _pollPhoto());
+      }
     } on CameraException catch (e) {
       final denied =
           e.code.contains('Access') ||
@@ -150,29 +168,59 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Takes a photo of the face in the grid and reads its 9 colors.
+  /// Takes a photo and reads the 9 colors inside the grid.
+  Future<List<Rgb>> _readPhoto(CameraController camera) async {
+    final photo = await camera.takePicture();
+    final bytes = await photo.readAsBytes();
+    // Windows saves each photo to a file: do not let them pile up.
+    if (!kIsWeb) File(photo.path).delete().ignore();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final image = (await codec.getNextFrame()).image;
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final samples = GridSampler.sample(
+      RgbaImage(
+        width: image.width,
+        height: image.height,
+        bytes: data!.buffer.asUint8List(),
+      ),
+      grid: _gridRect(camera),
+      rotation: 0,
+      // Windows shows the webcam mirrored but takes photos unmirrored.
+      mirrored: isWindows,
+    );
+    image.dispose();
+    return samples;
+  }
+
+  /// A photo read like a streamed frame: live colors, and the automatic
+  /// capture once the face holds still.
+  Future<void> _pollPhoto() async {
+    final camera = _camera;
+    if (camera == null || _busy || _polling || _scan.isComplete) return;
+    _polling = true;
+    try {
+      final samples = await _readPhoto(camera);
+      if (mounted && _camera == camera && !_busy) {
+        _scan.addFrame(samples, _clock.elapsed);
+      }
+    } catch (_) {
+      // A missed photo is simply skipped.
+    } finally {
+      _polling = false;
+    }
+  }
+
+  /// Takes a photo of the face in the grid and captures its 9 colors.
   Future<void> _capturePhoto() async {
     final camera = _camera;
     if (camera == null || _busy) return;
     setState(() => _busy = true);
     try {
-      final photo = await camera.takePicture();
-      final codec = await ui.instantiateImageCodec(await photo.readAsBytes());
-      final image = (await codec.getNextFrame()).image;
-      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-      final samples = GridSampler.sample(
-        RgbaImage(
-          width: image.width,
-          height: image.height,
-          bytes: data!.buffer.asUint8List(),
-        ),
-        grid: _gridRect(camera),
-        rotation: 0,
-        // Windows shows the webcam mirrored but takes photos unmirrored.
-        mirrored: isWindows,
-      );
-      image.dispose();
-      _scan.captureSamples(samples);
+      // Wait for a photo being taken for the live colors to finish.
+      while (_polling) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      _scan.captureSamples(await _readPhoto(camera));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -217,7 +265,25 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   void _onScanChanged() {
     if (!mounted) return;
+    if (_scan.stepIndex > _capturedCount) {
+      // A face was just captured (maybe by itself): say which one.
+      final face = ScanController.steps[_scan.stepIndex - 1].face;
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            duration: const Duration(milliseconds: 1500),
+            content: Text(
+              'Đã chụp mặt tâm ${face.colorName.toLowerCase()} '
+              '(${_scan.stepIndex}/6)',
+            ),
+          ),
+        );
+    }
+    _capturedCount = _scan.stepIndex;
     if (_scan.isComplete) {
+      _poll?.cancel();
       _finish(_scan.assemble());
     } else {
       setState(() {});
@@ -332,12 +398,31 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     style: TextStyle(color: theme.colorScheme.error),
                   ),
                 Text(
-                  _photoMode
-                      ? 'Căn mặt khối cho vừa lưới, giữ yên rồi bấm "Chụp mặt này".'
+                  _scan.live == null
+                      ? 'Căn mặt khối cho vừa lưới và giữ yên.'
+                      : !_scan.isClear
+                      ? 'Đưa cả mặt vào lưới, đủ sáng, để thấy rõ màu từng ô.'
+                      : _scan.autoCapture && _scan.centerMatches
+                      ? 'Giữ yên, app sẽ tự chụp khi màu ổn định…'
                       : _scan.isStable
                       ? 'Màu đã ổn định, có thể chụp.'
                       : 'Giữ yên khối trong khung…',
                   style: theme.textTheme.bodySmall,
+                ),
+                if (_scan.autoCapture) ...[
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    key: const ValueKey('auto-capture-progress'),
+                    value: _scan.autoProgress(_clock.elapsed),
+                  ),
+                ],
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Tự động chụp khi nhận rõ màu'),
+                  value: _scan.autoCapture,
+                  onChanged: (value) =>
+                      setState(() => _scan.autoCapture = value),
                 ),
                 const SizedBox(height: 12),
                 Row(

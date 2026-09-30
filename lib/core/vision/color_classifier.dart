@@ -16,6 +16,20 @@ abstract final class LiveColorClassifier {
     if (h < 265) return Face.b; // xanh dương
     return Face.r;
   }
+
+  /// Hues where one sticker color turns into the next (see [classify]).
+  static const _hueBounds = [12.0, 38.0, 75.0, 165.0, 265.0, 330.0];
+
+  /// Whether [color] reads clearly as a sticker: white, or a bright enough,
+  /// saturated enough color not right on the edge between two colors. A
+  /// dark gap, a shadow, a grey background or a red-or-orange guess is not.
+  static bool isClear(Rgb color) {
+    final hsv = color.toHsv();
+    // White must be bright: a grey wall or a shadowed white is not clear.
+    if (hsv.s < 0.28) return hsv.v > 0.55;
+    if (hsv.v < 0.25 || hsv.s < 0.35) return false;
+    return _hueBounds.every((b) => (hsv.h - b).abs() >= 4);
+  }
 }
 
 /// Final color of every sticker, given all 54 scanned samples.

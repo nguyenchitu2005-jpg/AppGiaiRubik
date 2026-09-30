@@ -50,6 +50,13 @@ class ScanController extends ChangeNotifier {
   /// Colors must stay the same this long before a face can be captured.
   static const stableFor = Duration(milliseconds: 500);
 
+  /// A clearly read face showing the expected center is captured by itself
+  /// once held still this long.
+  static const autoCaptureAfter = Duration(milliseconds: 900);
+
+  /// Capture faces by themselves (see [autoCaptureAfter]).
+  bool autoCapture = true;
+
   final Map<Face, List<Rgb>> _captured = {};
   final List<_Frame> _frames = [];
   int _stepIndex = 0;
@@ -71,6 +78,24 @@ class ScanController extends ChangeNotifier {
   /// face is in the frame).
   bool get centerMatches => live == null || live![4] == step?.face;
 
+  /// Every sticker of the latest frame reads clearly (no gap, shadow or
+  /// color on the edge between two).
+  bool get isClear =>
+      _frames.isNotEmpty &&
+      _frames.last.samples.every(LiveColorClassifier.isClear);
+
+  /// How far along the hold before an automatic capture is (0–1).
+  double autoProgress(Duration now) {
+    if (!autoCapture || _frames.isEmpty || !isClear || !centerMatches) {
+      return 0;
+    }
+    final held = now - _stableRun.first.time;
+    return (held.inMilliseconds / autoCaptureAfter.inMilliseconds).clamp(
+      0.0,
+      1.0,
+    );
+  }
+
   /// Captured faces as best guesses, for a small preview.
   Map<Face, List<Face>> get capturedPreview => {
     for (final entry in _captured.entries)
@@ -84,6 +109,17 @@ class ScanController extends ChangeNotifier {
       ..add(_Frame(time, labels, samples))
       ..removeWhere((f) => time - f.time > stableFor * 3);
     _stable = time - _stableRun.first.time >= stableFor;
+    // The face is read: the right center, every sticker clear, held still.
+    // (Until the cube is turned, the center no longer matches the next
+    // face, so the same face is not captured twice.)
+    if (autoCapture &&
+        _stable &&
+        live![4] == step!.face &&
+        isClear &&
+        time - _stableRun.first.time >= autoCaptureAfter) {
+      capture();
+      return;
+    }
     notifyListeners();
   }
 
