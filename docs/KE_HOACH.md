@@ -44,7 +44,8 @@ _Cập nhật: 29/09/2026_
 | Chọn trình độ **Newbie/Pro**. Pro giải bằng **CFOP**: Cross tối ưu, 41 F2L (sinh bằng máy, chỉ dùng R/U/F), 57 OLL, 21 PLL. Thư viện chia *Công thức cơ bản* / *Công thức nâng cao*, có hình nhận dạng. Ký hiệu xoay 2 tầng (r, f, u…) | `0fe307e` |
 | Trình độ **Master**: phương pháp ZB với **302 ZBLS + 472 ZBLL** (nhập từ Alg Trainer, MIT, mỗi công thức được kiểm chứng; phủ 1192/1192 trạng thái cặp cuối, 7488/7488 tầng cuối). F2L đánh số lại theo bảng chuẩn. Thư viện có tab ZB | `5e2d507` |
 | Nút lát giữa M / M' / M2 trên bàn phím xoay | `68ca3a7` |
-| Menu góc trái trên: **Hẹn giờ giải** (WCA, Ao5/Ao12, lưu lịch sử bằng `shared_preferences`) và **Công thức xáo trộn** (WCA trạng thái ngẫu nhiên, nhanh, luyện OLL/PLL/ZBLL) | (commit này) |
+| Menu góc trái trên: **Hẹn giờ giải** (WCA, Ao5/Ao12, lưu lịch sử bằng `shared_preferences`) và **Công thức xáo trộn** (WCA trạng thái ngẫu nhiên, nhanh, luyện OLL/PLL/ZBLL) | `b433cfe` |
+| Nút bóng đèn 💡 trên khối 3D: gợi ý bước tiếp theo theo trình độ (công thức, nước xoay), có nút "Xoay giúp tôi" | (commit này) |
 | Ký hiệu mặt (U·Trên, F·Trước…) trên khối 3D, luôn đứng thẳng, có nút bật/tắt | `4dbec53` |
 | Nút hoàn tác/làm lại ở màn hình nhập màu. Khối tự về tư thế đứng thẳng sau khi xoay | `36a5956` |
 | Ký hiệu mặt trên sơ đồ 2D | `6568574` |

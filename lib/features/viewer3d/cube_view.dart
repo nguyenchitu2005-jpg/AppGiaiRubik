@@ -24,6 +24,7 @@ class CubeView extends ConsumerStatefulWidget {
     this.hint,
     this.focus,
     this.onReorient,
+    this.actions = const [],
   });
 
   final CubeState state;
@@ -46,6 +47,10 @@ class CubeView extends ConsumerStatefulWidget {
 
   /// Called with the facelet index of a tapped sticker.
   final ValueChanged<int>? onStickerTap;
+
+  /// Extra buttons at the start of the row of icons over the cube (e.g. a
+  /// hint on the home screen).
+  final List<Widget> actions;
 
   @override
   ConsumerState<CubeView> createState() => _CubeViewState();
@@ -182,32 +187,39 @@ class _CubeViewState extends ConsumerState<CubeView>
               ),
             ),
             Positioned(
+              left: 0,
               right: 0,
               top: 0,
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: showFaceLabels
-                        ? 'Ẩn ký hiệu mặt'
-                        : 'Hiện ký hiệu mặt',
-                    isSelected: showFaceLabels,
-                    onPressed: ref.read(faceLabelsProvider.notifier).toggle,
-                    icon: const Icon(Icons.label_off_outlined),
-                    selectedIcon: const Icon(Icons.label_outline),
-                  ),
-                  IconButton(
-                    tooltip: soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh',
-                    isSelected: soundEnabled,
-                    onPressed: ref.read(soundEnabledProvider.notifier).toggle,
-                    icon: const Icon(Icons.volume_off_outlined),
-                    selectedIcon: const Icon(Icons.volume_up_outlined),
-                  ),
-                  IconButton(
-                    tooltip: 'Về góc nhìn mặc định',
-                    onPressed: _resetView,
-                    icon: const Icon(Icons.threed_rotation),
-                  ),
-                ],
+              // Shrinks the icons when the cube is small (short phones).
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.topRight,
+                child: Row(
+                  children: [
+                    ...widget.actions,
+                    IconButton(
+                      tooltip: showFaceLabels
+                          ? 'Ẩn ký hiệu mặt'
+                          : 'Hiện ký hiệu mặt',
+                      isSelected: showFaceLabels,
+                      onPressed: ref.read(faceLabelsProvider.notifier).toggle,
+                      icon: const Icon(Icons.label_off_outlined),
+                      selectedIcon: const Icon(Icons.label_outline),
+                    ),
+                    IconButton(
+                      tooltip: soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh',
+                      isSelected: soundEnabled,
+                      onPressed: ref.read(soundEnabledProvider.notifier).toggle,
+                      icon: const Icon(Icons.volume_off_outlined),
+                      selectedIcon: const Icon(Icons.volume_up_outlined),
+                    ),
+                    IconButton(
+                      tooltip: 'Về góc nhìn mặc định',
+                      onPressed: _resetView,
+                      icon: const Icon(Icons.threed_rotation),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -226,6 +238,7 @@ class AnimatedCubeView extends ConsumerStatefulWidget {
     this.hint,
     this.focus,
     this.onReorient,
+    this.actions = const [],
   });
 
   final CubeAnimationController controller;
@@ -234,6 +247,9 @@ class AnimatedCubeView extends ConsumerStatefulWidget {
 
   /// See [CubeView.onReorient].
   final ValueChanged<List<Move>>? onReorient;
+
+  /// See [CubeView.actions].
+  final List<Widget> actions;
 
   @override
   ConsumerState<AnimatedCubeView> createState() => _AnimatedCubeViewState();
@@ -276,6 +292,7 @@ class _AnimatedCubeViewState extends ConsumerState<AnimatedCubeView> {
         hint: controller.isAnimating ? null : widget.hint,
         focus: widget.focus,
         onReorient: widget.onReorient,
+        actions: widget.actions,
       ),
     );
   }

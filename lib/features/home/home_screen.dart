@@ -15,6 +15,7 @@ import '../../shared/platform_support.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../guide/guide_screen.dart';
 import 'app_drawer.dart';
+import 'hint_sheet.dart';
 import '../library/algorithm_library_screen.dart';
 import '../scanner/scan_screen.dart';
 import '../viewer3d/cube_animation_controller.dart';
@@ -73,6 +74,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _reorient(List<Move> rotation) {
     _animator.jumpTo(_animator.finalState.applyAll(rotation));
     ref.read(cubeSessionProvider.notifier).applyMoves(rotation);
+  }
+
+  /// The next step at the user's level, with its formula.
+  void _showHint() {
+    final cube = ref.read(cubeSessionProvider).cube;
+    if (cube.isSolved) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Khối đã được giải, không cần gợi ý. Hãy xáo trộn!'),
+          ),
+        );
+      return;
+    }
+    final level = ref.read(solveLevelProvider);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => HintSheet(
+        cube: cube,
+        method: level,
+        onApply: (moves) => moves.forEach(_turn),
+        onOpenGuide: () => _openGuide(cube, SolveMode.of(level)),
+      ),
+    );
   }
 
   void _openGuide(CubeState start, SolveMode mode) {
@@ -182,6 +210,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: AnimatedCubeView(
                               controller: _animator,
                               onReorient: _reorient,
+                              actions: [
+                                IconButton(
+                                  tooltip: 'Gợi ý',
+                                  onPressed: _showHint,
+                                  icon: Icon(
+                                    Icons.lightbulb_outline,
+                                    color: Colors.amber.shade800,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),

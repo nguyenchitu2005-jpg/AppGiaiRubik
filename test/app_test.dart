@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rubik_solver/app.dart';
 import 'package:rubik_solver/core/cube/cube_state.dart';
 import 'package:rubik_solver/core/cube/face.dart';
+import 'package:rubik_solver/core/cube/move.dart';
 import 'package:rubik_solver/features/input/net_editor_screen.dart';
 import 'package:rubik_solver/features/viewer3d/cube_painter.dart';
 import 'package:rubik_solver/features/viewer3d/cube_scene.dart';
@@ -426,6 +427,60 @@ void main() {
     await tester.tap(find.widgetWithText(OutlinedButton, "M'"));
     await tester.pumpAndSettle();
     expect(find.text('Khối đã được giải'), findsOneWidget);
+  });
+
+  testWidgets('hint: the lightbulb shows the next step and can do it', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.tap(find.byTooltip('Gợi ý'));
+    await tester.pump();
+    expect(find.textContaining('không cần gợi ý'), findsOneWidget);
+
+    await tester.tap(find.text('Xáo trộn'));
+    await tester.pumpAndSettle();
+    Future<List<Move>> hint(String stage) async {
+      await tester.tap(find.byTooltip('Gợi ý'));
+      await tester.pump();
+      await waitFor(tester, find.byKey(const ValueKey('hint-moves')));
+      await tester.pumpAndSettle();
+      expect(find.text(stage), findsOneWidget);
+      return Move.parseSequence(
+        tester
+            .widget<SelectableText>(find.byKey(const ValueKey('hint-moves')))
+            .data!,
+      );
+    }
+
+    // Newbie: first, hold the cube white side down.
+    final before = painter(tester).state;
+    final hold = await hint('Chuẩn bị: Cầm khối');
+    await tester.tap(find.text('Xoay giúp tôi'));
+    await tester.pumpAndSettle();
+    expect(painter(tester).state, before.applyAll(hold));
+
+    // Pro: then the cross, with the formula-free explanation.
+    await tester.tap(find.text('Pro'));
+    await tester.pump();
+    final cross = await hint('Giai đoạn 1/4: Cross');
+    expect(cross, isNotEmpty);
+    await tester.tap(find.text('Xoay giúp tôi'));
+    await tester.pumpAndSettle();
+    expect(painter(tester).state, before.applyAll([...hold, ...cross]));
+  });
+
+  testWidgets('a short phone: the icons over the cube still fit', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    tester.view
+      ..physicalSize = const Size(1080, 1920)
+      ..devicePixelRatio = 3; // 360 × 640
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Gợi ý'));
+    await tester.pump();
+    expect(find.textContaining('không cần gợi ý'), findsOneWidget);
   });
 
   testWidgets('editor: undo and redo edits', (tester) async {
