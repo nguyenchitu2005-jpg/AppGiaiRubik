@@ -1,6 +1,9 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter_windows.h>
 #include <windows.h>
+
+#include <algorithm>
 
 #include "flutter_window.h"
 #include "utils.h"
@@ -25,9 +28,24 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);
-  Win32Window::Point origin(10, 10);
-  // A tall, phone-like window to start with; it can be resized freely.
-  Win32Window::Size size(1280, 800);
+  // Open at 1280 x 800, smaller on a small or zoomed screen, centred in the
+  // work area (above the taskbar). Sizes here are logical pixels: Create
+  // scales them by the monitor's DPI.
+  RECT work;
+  ::SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0);
+  HMONITOR monitor = ::MonitorFromPoint(POINT{work.left, work.top},
+                                        MONITOR_DEFAULTTOPRIMARY);
+  const double scale = FlutterDesktopGetDpiForMonitor(monitor) / 96.0;
+  const int work_width = static_cast<int>((work.right - work.left) / scale);
+  const int work_height = static_cast<int>((work.bottom - work.top) / scale);
+  const int width = std::max(360, std::min(1280, work_width - 32));
+  const int height = std::max(480, std::min(800, work_height - 32));
+  Win32Window::Size size(width, height);
+  Win32Window::Point origin(
+      std::max(0, static_cast<int>(work.left / scale) +
+                      (work_width - width) / 2),
+      std::max(0, static_cast<int>(work.top / scale) +
+                      (work_height - height) / 2));
   if (!window.Create(L"Rubik Solver", origin, size)) {
     return EXIT_FAILURE;
   }
