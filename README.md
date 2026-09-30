@@ -23,6 +23,7 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 
 - Máy hỏi *"Cho phép cài ứng dụng không rõ nguồn gốc"*: chọn **Cài đặt** → bật **Cho phép từ nguồn này** → quay lại bấm **Cài đặt**.
 - Nếu Google Play Protect cảnh báo *"Ứng dụng chưa được xác minh"*: bấm **Chi tiết** → **Vẫn cài đặt**. Cảnh báo này xuất hiện vì app không tải từ Google Play.
+- Từ bản 1.2.0, app **tự báo khi có phiên bản mới** (lúc mở app, hoặc menu → Kiểm tra cập nhật): bấm **Cập nhật** để tải, rồi mở file và bấm **Cài đặt** (cài đè, không mất dữ liệu).
 - Nếu file `RubikSolver-1.0.0.apk` báo *"Ứng dụng không tương thích"* (máy rất cũ hoặc máy ảo), tải file `RubikSolver-1.0.0-tat-ca-may.apk`.
 
 ## Tiến độ

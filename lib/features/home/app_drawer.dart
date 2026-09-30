@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +10,7 @@ import '../practice/practice_screen.dart';
 import '../scanner/scan_screen.dart';
 import '../scrambles/scramble_screen.dart';
 import '../timer/timer_screen.dart';
+import '../update/app_update.dart';
 
 /// The menu opened from the top-left corner of the home screen.
 class AppDrawer extends ConsumerWidget {
@@ -110,6 +112,22 @@ class AppDrawer extends ConsumerWidget {
                 'Quét 6 mặt để nhập màu tự động',
                 ScanScreen.routeName,
               ),
+            // A browser always loads the latest web version.
+            if (!kIsWeb) ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.system_update_outlined),
+                title: const Text('Kiểm tra cập nhật'),
+                subtitle: Text(switch (ref.watch(currentVersionProvider)) {
+                  AsyncData(:final value) => 'Phiên bản $value',
+                  _ => 'Phiên bản hiện tại',
+                }),
+                onTap: () async {
+                  await checkForUpdate(context, ref);
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+              ),
+            ],
           ],
         ),
       ),

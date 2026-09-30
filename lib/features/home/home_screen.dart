@@ -15,6 +15,7 @@ import '../../shared/layout.dart';
 import '../../shared/platform_support.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../guide/guide_screen.dart';
+import '../update/app_update.dart';
 import 'app_drawer.dart';
 import 'hint_sheet.dart';
 import '../library/algorithm_library_screen.dart';
@@ -41,6 +42,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     initial: ref.read(cubeSessionProvider).cube,
     quarterTurn: ref.read(animationSpeedProvider).quarterTurn,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    // A newer version on GitHub? Say so once the home screen is up.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ref.read(checkUpdatesAtStartProvider)) {
+        checkForUpdate(context, ref, quiet: true);
+      }
+    });
+  }
 
   @override
   void dispose() {
