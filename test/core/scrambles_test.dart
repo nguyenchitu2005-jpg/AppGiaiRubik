@@ -76,6 +76,39 @@ void main() {
         }
       });
     }
+
+    for (final kind in [ScrambleKind.f2l, ScrambleKind.zbls]) {
+      test('${kind.label}: only the last pair left, its answer inserts it', () {
+        final random = Random(11);
+        for (var i = 0; i < 8; i++) {
+          final s = Scrambles.generateSync(kind, random);
+          expect(s.moves.every((m) => m.layer.isFaceTurn), isTrue);
+          final held = _held(s);
+          final c = SolveSession.cubieOf(held);
+          // Cross and the three other slots solved.
+          for (final k in [5, 6, 7]) {
+            expect(c.cp[k] == k && c.co[k] == 0, isTrue, reason: s.caseName);
+          }
+          for (final e in [4, 5, 6, 7, 9, 10, 11]) {
+            expect(c.ep[e] == e && c.eo[e] == 0, isTrue, reason: s.caseName);
+          }
+          final answer = kind.algorithms.singleWhere(
+            (a) => a.name == s.caseName,
+          );
+          final inserted =
+              [
+                for (var a = 0; a < 4; a++)
+                  held.applyAll([..._u(a), ...answer.moves]),
+              ].any(
+                (after) =>
+                    CfopSession.f2lSolved(SolveSession.cubieOf(after)) &&
+                    (kind == ScrambleKind.f2l ||
+                        CfopSession.edgesOriented(after)),
+              );
+          expect(inserted, isTrue, reason: s.caseName);
+        }
+      });
+    }
   });
 
   group('solve times', () {

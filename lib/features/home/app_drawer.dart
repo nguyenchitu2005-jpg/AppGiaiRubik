@@ -5,6 +5,7 @@ import '../../shared/platform_support.dart';
 import '../input/net_editor_screen.dart';
 import '../library/algorithm_library_screen.dart';
 import '../notation/notation_screen.dart';
+import '../practice/practice_screen.dart';
 import '../scanner/scan_screen.dart';
 import '../scrambles/scramble_screen.dart';
 import '../timer/timer_screen.dart';
@@ -76,6 +77,12 @@ class AppDrawer extends ConsumerWidget {
               'Hẹn giờ giải',
               'Bấm giờ như thi đấu: Ao5, Ao12, kỷ lục',
               TimerScreen.routeName,
+            ),
+            item(
+              Icons.fitness_center,
+              'Luyện tập',
+              'Bấm giờ từng trường hợp F2L, OLL, PLL, ZBLS, ZBLL tuỳ chọn',
+              PracticeScreen.routeName,
             ),
             item(
               Icons.shuffle,

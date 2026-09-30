@@ -19,6 +19,11 @@ enum ScrambleKind {
         'ra như nhau, khoảng 20 nước.',
   ),
   quick('Nhanh', '25 nước xoay ngẫu nhiên.'),
+  f2l(
+    'Luyện F2L',
+    'Cross và 3 cặp đã xong, cặp cuối (khe trước–phải khi cầm mặt trắng ở '
+        'dưới) là một trường hợp F2L ngẫu nhiên.',
+  ),
   oll(
     'Luyện OLL',
     'Hai tầng dưới đã xong, tầng vàng là một trường hợp OLL ngẫu nhiên.',
@@ -26,6 +31,11 @@ enum ScrambleKind {
   pll(
     'Luyện PLL',
     'Mặt vàng đã xong, tầng vàng là một trường hợp PLL ngẫu nhiên.',
+  ),
+  zbls(
+    'Luyện ZBLS',
+    'Cross và 3 cặp đã xong, cặp cuối và hướng các cạnh vàng là một trường '
+        'hợp ZBLS ngẫu nhiên.',
   ),
   zbll(
     'Luyện ZBLL',
@@ -37,6 +47,17 @@ enum ScrambleKind {
 
   final String label;
   final String description;
+
+  /// The algorithms whose cases this kind practises (empty for whole-cube
+  /// scrambles).
+  List<Algorithm> get algorithms => switch (this) {
+    wca || quick => const [],
+    f2l => CfopAlgorithms.f2l,
+    oll => CfopAlgorithms.oll,
+    pll => CfopAlgorithms.pll,
+    zbls => ZbAlgorithms.zbls,
+    zbll => ZbAlgorithms.zbll,
+  };
 }
 
 /// A scramble, and for practice scrambles the case it sets up.
@@ -69,10 +90,18 @@ abstract final class Scrambles {
     return switch (kind) {
       ScrambleKind.wca => GeneratedScramble(kind, _reach(randomState(r))),
       ScrambleKind.quick => GeneratedScramble(kind, Scrambler(r).generate()),
-      ScrambleKind.oll => _practice(kind, CfopAlgorithms.oll, r),
-      ScrambleKind.pll => _practice(kind, CfopAlgorithms.pll, r),
-      ScrambleKind.zbll => _practice(kind, ZbAlgorithms.zbll, r),
+      _ => forCase(kind, kind.algorithms[r.nextInt(kind.algorithms.length)], r),
     };
+  }
+
+  /// A scramble setting up the case [algorithm] solves (one of
+  /// [kind]'s), made in the background.
+  static Future<GeneratedScramble> generateForCase(
+    ScrambleKind kind,
+    Algorithm algorithm,
+  ) {
+    final seed = Random().nextInt(0x7fffffff);
+    return runInBackground(() => forCase(kind, algorithm, Random(seed)));
   }
 
   /// A uniformly random reachable cube (as the WCA scrambler draws them).
@@ -95,26 +124,43 @@ abstract final class Scrambles {
     }
   }
 
-  /// A practice scramble: the first two layers solved and the yellow (D)
-  /// layer showing the case of a random algorithm from [algorithms], from
-  /// a random angle.
-  static GeneratedScramble _practice(
+  /// A practice scramble for the case [algorithm] solves, seen from a
+  /// random angle (U turns). The rest of the top layer is shuffled too, as
+  /// in a real solve, within what the case allows: anything for F2L, any
+  /// permutation for OLL, a kept yellow cross for ZBLS.
+  static GeneratedScramble forCase(
     ScrambleKind kind,
-    List<Algorithm> algorithms,
+    Algorithm algorithm,
     Random r,
   ) {
-    final algorithm = algorithms[r.nextInt(algorithms.length)];
     List<Move> u() => [
       if (r.nextInt(4) case final t when t > 0) Move(MoveLayer.u, t),
     ];
+    List<Move> undo(List<Algorithm> from) =>
+        Move.invertSequence(from[r.nextInt(from.length)].moves);
+    final shuffleTop = switch (kind) {
+      ScrambleKind.f2l => [
+        ...undo(CfopAlgorithms.oll),
+        ...u(),
+        ...undo(CfopAlgorithms.pll),
+      ],
+      ScrambleKind.oll => undo(CfopAlgorithms.pll),
+      ScrambleKind.zbls => undo(ZbAlgorithms.zbll),
+      _ => const <Move>[],
+    };
     // Held yellow on top while undoing the algorithm, then back to white
     // on top, as scrambles are applied.
     final state = CubeState.solved()
         .applyAlgorithm('z2')
-        .applyAll([...u(), ...Move.invertSequence(algorithm.moves), ...u()])
+        .applyAll([
+          ...shuffleTop,
+          ...u(),
+          ...Move.invertSequence(algorithm.moves),
+          ...u(),
+        ])
         .applyAlgorithm('z2')
         .withCentersNormalized();
-    if (state.isSolved) return _practice(kind, algorithms, r);
+    if (state.isSolved) return forCase(kind, algorithm, r);
     return GeneratedScramble(kind, _reach(state), caseName: algorithm.name);
   }
 

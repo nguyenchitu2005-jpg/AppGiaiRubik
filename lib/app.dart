@@ -4,6 +4,7 @@ import 'features/home/home_screen.dart';
 import 'features/input/net_editor_screen.dart';
 import 'features/library/algorithm_library_screen.dart';
 import 'features/notation/notation_screen.dart';
+import 'features/practice/practice_screen.dart';
 import 'features/scanner/scan_screen.dart';
 import 'features/scrambles/scramble_screen.dart';
 import 'features/timer/timer_screen.dart';
@@ -29,6 +30,7 @@ class RubikApp extends StatelessWidget {
         TimerScreen.routeName: (_) => const TimerScreen(),
         ScrambleScreen.routeName: (_) => const ScrambleScreen(),
         NotationScreen.routeName: (_) => const NotationScreen(),
+        PracticeScreen.routeName: (_) => const PracticeScreen(),
       },
     );
   }

@@ -12,6 +12,7 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 - **Gợi ý 💡**: bấm bóng đèn trên khối 3D để xem bước tiếp theo và công thức cần dùng (theo trình độ đã chọn), hoặc để app xoay giúp
 - **Menu** (góc trái trên):
   - **Ký hiệu & cách xoay** cho người mới: bấm từng ký hiệu (U, R', F2, M, r, x…) để xem khối 3D chỉ hướng rồi xoay, kèm bài luyện đoán ký hiệu
+  - **Luyện tập**: chọn bộ công thức (F2L, OLL, PLL, ZBLS, ZBLL) và các trường hợp muốn tập, bấm giờ từng lần, xem đáp án và trường hợp giải chậm nhất
   - **Hẹn giờ giải** kiểu thi đấu: giữ–thả–chạm hoặc phím cách, quan sát 15 giây theo WCA (+2/DNF), thống kê tốt nhất / Ao5 / Ao12 / trung bình, lịch sử lưu trên máy
   - **Công thức xáo trộn**: chuẩn WCA (trạng thái ngẫu nhiên), nhanh 25 nước, luyện OLL / PLL / ZBLL (có đáp án); sao chép, dùng cho khối 3D hoặc bấm giờ
 - **Thư viện công thức** chia 3 phần Cơ bản / Nâng cao / ZB, có hình nhận dạng từng trường hợp và minh hoạ động. Công thức ZBLS/ZBLL lấy từ [Alg Trainer của Tao Yu](https://github.com/tao-yu/Alg-Trainer) (giấy phép MIT, xem `third_party/alg-trainer`)

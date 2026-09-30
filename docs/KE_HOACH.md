@@ -48,7 +48,9 @@ _Cập nhật: 29/09/2026_
 | Nút bóng đèn 💡 trên khối 3D: gợi ý bước tiếp theo theo trình độ (công thức, nước xoay), có nút "Xoay giúp tôi" | `c7ea08b` |
 | Menu **Ký hiệu & cách xoay** cho người mới: 6 mặt, R / R' / R2, lát giữa M E S, 2 tầng (r…), xoay cả khối x y z; khối 3D minh hoạ có mũi tên chỉ hướng; phần luyện tập đoán ký hiệu | `64c74ee` |
 | Phát hành bản **1.1.0** (APK) | `7f71f96` |
-| **Máy tính / web**: bố cục 2 cột khi cửa sổ rộng ≥ 840 px (khối 3D lớn bên trái, điều khiển bên phải; thư viện và xáo trộn dạng lưới); cửa sổ Windows/macOS mặc định 1280×800; web có tiêu đề, mô tả và biểu tượng của app; sửa lỗi chạm "bất kỳ đâu" để dừng đồng hồ chỉ nhận ở cột giữa | (commit này) |
+| **Máy tính / web**: bố cục 2 cột khi cửa sổ rộng ≥ 840 px (khối 3D lớn bên trái, điều khiển bên phải; thư viện và xáo trộn dạng lưới); cửa sổ Windows/macOS mặc định 1280×800; web có tiêu đề, mô tả và biểu tượng của app; sửa lỗi chạm "bất kỳ đâu" để dừng đồng hồ chỉ nhận ở cột giữa | `53d9697` |
+| Cửa sổ Windows tự vừa màn hình (125–150%) và căn giữa | `6b886c3` |
+| Menu **Luyện tập**: chọn bộ F2L / OLL / PLL / ZBLS / ZBLL và từng trường hợp (theo nhóm), app xáo ra trường hợp ngẫu nhiên trong số đã chọn, bấm giờ, gợi ý đáp án, thống kê trường hợp chậm nhất | (commit này) |
 | Ký hiệu mặt (U·Trên, F·Trước…) trên khối 3D, luôn đứng thẳng, có nút bật/tắt | `4dbec53` |
 | Nút hoàn tác/làm lại ở màn hình nhập màu. Khối tự về tư thế đứng thẳng sau khi xoay | `36a5956` |
 | Ký hiệu mặt trên sơ đồ 2D | `6568574` |

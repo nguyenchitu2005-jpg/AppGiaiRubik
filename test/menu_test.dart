@@ -51,6 +51,8 @@ void main() {
       await tester.pump();
     }
     expect(finder, findsWidgets);
+    // Let a page transition finish (spinners are gone by now).
+    await tester.pump(const Duration(milliseconds: 600));
   }
 
   Finder inMenu(String text) =>
@@ -269,5 +271,68 @@ void main() {
     await tester.pump();
     expect(find.textContaining('Đúng rồi!'), findsOneWidget);
     expect(find.text('Đúng 1 / 1 câu'), findsOneWidget);
+  });
+
+  testWidgets('practice: time a case, pick cases, see the answer', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await openFromMenu(tester, 'Luyện tập');
+    await waitFor(tester, find.byKey(const ValueKey('practice-scramble')));
+    expect(find.text('Đang luyện 41/41 trường hợp'), findsOneWidget);
+
+    // Time one F2L case.
+    final display = find.byKey(const ValueKey('timer-display'));
+    final gesture = await tester.startGesture(tester.getCenter(display));
+    await tester.pump(const Duration(milliseconds: 400));
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(const Offset(540, 1200));
+    await tester.pump();
+    await waitFor(tester, find.byKey(const ValueKey('practice-scramble')));
+    expect(
+      find.textContaining(RegExp(r'^Vừa rồi: F2L \d+ · ')),
+      findsOneWidget,
+    );
+    expect(find.text('Chậm nhất (nên luyện thêm)'), findsOneWidget);
+
+    // Only the T-perm among the PLLs.
+    await tester.tap(find.text('PLL'));
+    await tester.pump();
+    await waitFor(tester, find.byKey(const ValueKey('practice-scramble')));
+    await tester.tap(find.text('Chọn trường hợp'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bỏ hết'));
+    await tester.pump();
+    expect(find.text('Chọn trường hợp · 0/21'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey('case-T-perm')),
+      find.byType(Scrollable).last,
+      const Offset(0, -300),
+    );
+    await tester.tap(find.byKey(const ValueKey('case-T-perm')));
+    await tester.pump();
+    expect(find.text('Chọn trường hợp · 1/21'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pump();
+    await waitFor(tester, find.byKey(const ValueKey('practice-scramble')));
+    expect(find.text('Đang luyện 1/21 trường hợp'), findsOneWidget);
+    await tester.tap(find.text('Gợi ý đáp án'));
+    await tester.pump();
+    expect(find.textContaining('T-perm: '), findsOneWidget);
+  });
+
+  testWidgets('practice fits a narrow phone', (tester) async {
+    await pumpApp(tester);
+    tester.view
+      ..physicalSize = const Size(1080, 2400)
+      ..devicePixelRatio = 3; // 360 × 800
+    await tester.pumpAndSettle();
+    await openFromMenu(tester, 'Luyện tập');
+    await waitFor(tester, find.byKey(const ValueKey('practice-scramble')));
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Chọn trường hợp'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }
