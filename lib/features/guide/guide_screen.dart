@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/cube/cube_state.dart';
 import '../../core/solver/beginner/beginner_solver.dart';
 import '../../core/solver/cfop/cfop_solver.dart';
+import '../../core/solver/zb/zb_solver.dart';
 import '../../core/solver/kociemba_solver.dart';
 import '../../core/solver/solve_step.dart';
 import '../../shared/widgets/speed_selector.dart';
@@ -16,6 +17,7 @@ import 'solution_player_view.dart';
 enum SolveMode {
   beginner('Newbie', Icons.school_outlined, SolveMethod.beginner),
   cfop('Pro', Icons.emoji_events_outlined, SolveMethod.cfop),
+  zb('Master', Icons.workspace_premium_outlined, SolveMethod.zb),
   quick('Giải nhanh', Icons.bolt, null);
 
   const SolveMode(this.label, this.icon, this.method);
@@ -35,8 +37,8 @@ extension SolveMethodIcon on SolveMethod {
 }
 
 /// Step-by-step guide for solving [start]: layer by layer (Newbie, basic
-/// formulas, ~140 moves), CFOP (Pro, advanced formulas, ~60 moves) or
-/// Kociemba (~20 moves, no formulas).
+/// formulas, ~140 moves), CFOP (Pro, advanced formulas, ~60 moves), ZB
+/// (Master, ~52 moves) or Kociemba (~20 moves, no formulas).
 class GuideScreen extends ConsumerStatefulWidget {
   const GuideScreen({
     super.key,
@@ -112,6 +114,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
         return BeginnerSolver.solve(widget.start);
       case SolveMode.cfop:
         return CfopSolver.solve(widget.start);
+      case SolveMode.zb:
+        return ZbSolver.solve(widget.start);
       case SolveMode.quick:
         final moves = await KociembaSolver.solve(widget.start);
         return [
@@ -152,11 +156,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
             child: SegmentedButton<SolveMode>(
               segments: [
                 for (final mode in SolveMode.values)
-                  ButtonSegment(
-                    value: mode,
-                    label: Text(mode.label),
-                    icon: Icon(mode.icon),
-                  ),
+                  // Text only: four modes must fit a narrow phone.
+                  ButtonSegment(value: mode, label: Text(mode.label)),
               ],
               selected: {_mode},
               showSelectedIcon: false,

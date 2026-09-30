@@ -31,7 +31,8 @@ class CaseDiagram extends StatelessWidget {
     final state = caseOf(algorithm);
     final painter = switch (algorithm.stage) {
       SolveStage.oll => _TopViewPainter(state, orientationOnly: true),
-      SolveStage.pll => _TopViewPainter(state, orientationOnly: false),
+      SolveStage.pll ||
+      SolveStage.zbll => _TopViewPainter(state, orientationOnly: false),
       _ => CubePainter(
         state: state,
         view: CubeScene.defaultOrientation().asRotationMatrix(),

@@ -282,11 +282,18 @@ void main() {
     );
     expect(find.text('F2L 1'), findsOneWidget);
 
-    Future<void> scrollTo(Finder finder) => tester.scrollUntilVisible(
-      finder,
-      500,
-      scrollable: find.byType(Scrollable).last,
-    );
+    // Drag like a finger: scrollUntilVisible would also nudge the tab pages
+    // sideways (ensureVisible scrolls every enclosing scrollable).
+    // Then let the fling stop, as a finger would before tapping.
+    Future<void> scrollTo(Finder finder) async {
+      await tester.dragUntilVisible(
+        finder,
+        _verticalList,
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+    }
+
     await scrollTo(find.text('OLL 27 · Sune'));
     await scrollTo(find.text('T-perm'));
     await tester.tap(find.byTooltip('Xem minh hoạ T-perm'));
@@ -298,9 +305,62 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Công thức cơ bản · Newbie'));
+    await tester.tap(find.text('Cơ bản'));
     await tester.pumpAndSettle();
     expect(find.text('Sune'), findsOneWidget);
+  });
+
+  testWidgets('level: Master teaches ZB, with ZBLS and ZBLL', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Master'));
+    await tester.pump();
+    expect(
+      find.text('Phương pháp ZB (Zborowski–Bruchem) · Công thức ZB'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Xáo trộn'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Học cách giải'));
+    await tester.pump();
+    await waitFor(tester, find.textContaining(RegExp(r'^Bước 1/\d+$')));
+    expect(find.text('Master · Công thức ZB'), findsOneWidget);
+    // Skip to the ZBLS step: stage 3 of 4.
+    for (
+      var i = 0;
+      i < 12 && find.text('Giai đoạn 3/4: ZBLS').evaluate().isEmpty;
+      i++
+    ) {
+      await tester.tap(find.byTooltip('Bước tiếp'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Giai đoạn 3/4: ZBLS'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^ZBLS \d+-\d+$')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Thư viện công thức'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Phương pháp: Phương pháp ZB (Zborowski–Bruchem)'),
+      findsOneWidget,
+    );
+    Future<void> scrollTo(Finder finder) async {
+      await tester.dragUntilVisible(
+        finder,
+        _verticalList,
+        const Offset(0, -2000),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await scrollTo(find.text('ZBLS 1-1'));
+    await scrollTo(find.text('ZBLL T1-1'));
+    await tester.tap(find.byTooltip('Xem minh hoạ ZBLL T1-1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Tự chạy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hoàn thành! Khối đã được giải.'), findsOneWidget);
+    expect(painter(tester).state.isSolved, isTrue);
   });
 
   testWidgets('Pro guide and advanced library fit a narrow phone', (
@@ -345,10 +405,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Thư viện công thức'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
+    await tester.dragUntilVisible(
       find.text('Nb-perm'),
-      800,
-      scrollable: find.byType(Scrollable).last,
+      _verticalList,
+      const Offset(0, -800),
     );
     expect(tester.takeException(), isNull);
   });
@@ -568,3 +628,12 @@ class _SilentSounds implements CubeSounds {
   @override
   void scramble() {}
 }
+
+/// The vertical list on screen (not the scrolling tab bar, nor the lists
+/// of the tabs beside it).
+final _verticalList = find
+    .byWidgetPredicate(
+      (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+    )
+    .hitTestable()
+    .last;

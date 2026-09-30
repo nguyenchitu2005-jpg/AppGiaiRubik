@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/solver/algorithms.dart';
 import '../../core/solver/cfop/cfop_algorithms.dart';
 import '../../core/solver/solve_step.dart';
+import '../../core/solver/zb/zb_algorithms.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../../state/settings.dart';
 import '../guide/solution_player.dart';
@@ -30,8 +31,11 @@ class AlgorithmLibraryScreen extends ConsumerWidget {
           title: const Text('Thư viện công thức'),
           bottom: TabBar(
             tabs: [
+              // "Công thức nâng cao" → "Nâng cao": three tabs on a phone.
               for (final method in SolveMethod.values)
-                Tab(text: '${method.formulas} · ${method.level}'),
+                Tab(
+                  text: _capitalized(method.formulas.split('Công thức ').last),
+                ),
             ],
           ),
         ),
@@ -39,12 +43,16 @@ class AlgorithmLibraryScreen extends ConsumerWidget {
           // Keep the end of the page clear of the system navigation bar
           // (Android draws edge to edge).
           top: false,
-          child: TabBarView(children: [_BasicFormulas(), _AdvancedFormulas()]),
+          child: TabBarView(
+            children: [_BasicFormulas(), _AdvancedFormulas(), _ZbFormulas()],
+          ),
         ),
       ),
     );
   }
 }
+
+String _capitalized(String text) => text[0].toUpperCase() + text.substring(1);
 
 class _Page extends StatelessWidget {
   const _Page({required this.children});
@@ -194,19 +202,19 @@ class _AdvancedFormulas extends StatelessWidget {
             ),
           ),
         ),
-        ..._grouped(
+        ..._groupedCards(
           '2. F2L',
           'First Two Layers: 41 trường hợp ghép cặp góc–cạnh cho khe '
               'trước–phải (khe khác: xoay cả khối bằng y)',
           CfopAlgorithms.f2l,
         ),
-        ..._grouped(
+        ..._groupedCards(
           '3. OLL',
           'Orientation of the Last Layer: 57 trường hợp làm vàng mặt trên, '
               'nhận dạng theo hình màu vàng',
           CfopAlgorithms.oll,
         ),
-        ..._grouped(
+        ..._groupedCards(
           '4. PLL',
           'Permutation of the Last Layer: 21 trường hợp đưa tầng trên về '
               'đúng chỗ, nhận dạng theo màu ở các mặt bên',
@@ -215,25 +223,74 @@ class _AdvancedFormulas extends StatelessWidget {
       ],
     );
   }
+}
 
-  /// A section title, then the algorithms under a heading per group (in
-  /// the order the groups first appear).
-  static List<Widget> _grouped(
-    String title,
-    String subtitle,
-    List<Algorithm> algorithms,
-  ) {
-    final groups = <String, List<Algorithm>>{};
-    for (final a in algorithms) {
-      groups.putIfAbsent(a.group!, () => []).add(a);
-    }
-    return [
-      _SectionTitle(title, subtitle),
-      for (final MapEntry(key: group, value: members) in groups.entries) ...[
-        _GroupTitle('$group (${members.length})'),
-        for (final algorithm in members) _CaseCard(algorithm: algorithm),
+/// A section title, then the algorithms under a heading per group (in the
+/// order the groups first appear).
+List<Widget> _groupedCards(
+  String title,
+  String subtitle,
+  List<Algorithm> algorithms,
+) {
+  final groups = <String, List<Algorithm>>{};
+  for (final a in algorithms) {
+    groups.putIfAbsent(a.group!, () => []).add(a);
+  }
+  return [
+    _SectionTitle(title, subtitle),
+    for (final MapEntry(key: group, value: members) in groups.entries) ...[
+      _GroupTitle('$group (${members.length})'),
+      for (final algorithm in members) _CaseCard(algorithm: algorithm),
+    ],
+  ];
+}
+
+class _ZbFormulas extends StatelessWidget {
+  const _ZbFormulas();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _Page(
+      children: [
+        const _MethodHeader(method: SolveMethod.zb),
+        const _Notation(advanced: true),
+        const _SectionTitle('1–2. Cross và F2L', 'Như CFOP'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Làm Cross và 3 cặp F2L như CFOP (xem tab Công thức nâng cao). '
+              'Cặp thứ tư để dành cho ZBLS: đưa nó vào khe trước–phải và '
+              'cùng lúc tạo dấu cộng vàng, để ZBLL giải cả tầng cuối trong '
+              'một công thức. Nếu cặp cuối tự vào khe sẵn thì làm OLL + PLL.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        ),
+        ..._groupedCards(
+          '3. ZBLS',
+          'Zborowski–Bruchem Last Slot: 302 trường hợp, xếp theo trường hợp '
+              'F2L của cặp cuối (đánh số theo bảng F2L chuẩn) và hướng các '
+              'cạnh vàng',
+          ZbAlgorithms.zbls,
+        ),
+        ..._groupedCards(
+          '4. ZBLL',
+          'Zborowski–Bruchem Last Layer: 472 trường hợp, xếp theo hình các '
+              'góc vàng (như OLL 21–27), nhận dạng theo màu ở các mặt bên',
+          ZbAlgorithms.zbll,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 16, 4, 0),
+          child: Text(
+            'Nguồn công thức ZBLS/ZBLL: Alg Trainer của Tao Yu '
+            '(github.com/tao-yu/Alg-Trainer, giấy phép MIT).',
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
       ],
-    ];
+    );
   }
 }
 

@@ -62,6 +62,17 @@ enum SolveStage {
         'tầng trên về đúng chỗ. Khối được giải!',
   ),
 
+  zbls(
+    'ZBLS',
+    'Zborowski–Bruchem Last Slot: đưa cặp cuối vào khe và cùng lúc làm cả '
+        '4 cạnh tầng trên hướng lên (dấu cộng vàng), một công thức trong 302.',
+  ),
+  zbll(
+    'ZBLL',
+    'Zborowski–Bruchem Last Layer: giải cả tầng cuối trong một công thức '
+        '(trong 472) khi đã có dấu cộng vàng. Khối được giải!',
+  ),
+
   /// Not a human method: a short computer-found solution.
   quick(
     'Lời giải ngắn',
@@ -82,6 +93,9 @@ enum SolveStage {
 
   /// The four stages of CFOP, in order.
   static const cfop = [cross, f2l, oll, pll];
+
+  /// The ZB method: CFOP's start, then ZBLS and ZBLL.
+  static const zb = [cross, f2l, zbls, zbll];
 
   const SolveStage(this.title, this.goal);
 
@@ -115,6 +129,17 @@ enum SolveMethod {
         'Cross → F2L → OLL → PLL: phương pháp của hầu hết người giải nhanh. '
         'Khoảng 55–65 nước với 41 + 57 + 21 công thức.',
     stages: SolveStage.cfop,
+  ),
+  zb(
+    level: 'Master',
+    name: 'ZB',
+    fullName: 'Phương pháp ZB (Zborowski–Bruchem)',
+    formulas: 'Công thức ZB',
+    summary:
+        'Cross → F2L 3 cặp → ZBLS (cặp cuối + dấu cộng vàng) → ZBLL (cả tầng '
+        'cuối trong 1 công thức). Khoảng 45–55 nước với 302 + 472 công thức, '
+        'dành cho người đã thuộc CFOP.',
+    stages: SolveStage.zb,
   );
 
   const SolveMethod({

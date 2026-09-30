@@ -5,6 +5,8 @@
 //
 //   dart run tool/cfop/generate_f2l.dart > lib/core/solver/cfop/f2l_cases.dart
 //
+// then number them as the standard F2L chart with tool/zb/import_zb.dart.
+//
 // A case is where the slot's corner (DFR) and edge (FR) are, anywhere in the
 // top layer or in the slot itself, with the cross and the other three slots
 // solved. Each is solved by IDA* with R, U and F turns (the moves speed

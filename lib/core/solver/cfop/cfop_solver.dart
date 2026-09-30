@@ -28,7 +28,7 @@ abstract final class CfopSolver {
   static List<SolveStep> solveSync(CubeState state) {
     _validate(state);
     if (state.isSolved) return const [];
-    final solve = _Cfop(state)
+    final solve = CfopSession(state)
       ..hold()
       ..cross()
       ..f2l()
@@ -59,8 +59,10 @@ const _slots = [
 
 const _crossEdges = [Edge.dr, Edge.df, Edge.dl, Edge.db];
 
-class _Cfop extends SolveSession {
-  _Cfop(super.physical);
+/// A CFOP solve in progress. The ZB method starts the same way, so its
+/// solver builds on this.
+class CfopSession extends SolveSession {
+  CfopSession(super.physical);
 
   // ------------------------------------------------------------------ cross
 
@@ -81,10 +83,11 @@ class _Cfop extends SolveSession {
 
   // -------------------------------------------------------------------- F2L
 
-  void f2l() {
+  /// Solves F2L pairs, easiest first, until [pairs] of them are solved.
+  void f2l({int pairs = 4}) {
     for (var guard = 0; guard < 12; guard++) {
       final before = _solvedPairs(physical);
-      if (before.length == 4) return;
+      if (before.length >= pairs) return;
 
       final best = _bestPair(physical, before);
       if (best != null) {
@@ -185,6 +188,18 @@ class _Cfop extends SolveSession {
     };
   }
 
+  /// The colors of the one pair still to solve (of the white corner).
+  Set<Face> lastPairColors() {
+    final solved = _solvedPairs(physical);
+    for (final (corner, _) in _slots) {
+      final colors = colorsOf(CubieCube.cornerColors[corner.index]).toSet();
+      if (!solved.contains(_key(colors.toList()))) return colors;
+    }
+    throw StateError('F2L đã xong');
+  }
+
+  static bool frontRightSolved(CubeState state) => _frontRightSolved(state);
+
   static bool _frontRightSolved(CubeState state) {
     final c = SolveSession.cubieOf(state);
     return _cornerSolved(c, Corner.dfr.index) && _edgeSolved(c, Edge.fr.index);
@@ -192,45 +207,50 @@ class _Cfop extends SolveSession {
 
   // -------------------------------------------------------------- OLL / PLL
 
-  void oll() {
-    if (_lastLayerOriented(physical)) return; // OLL skip
-    final (u, algorithm) = _shortestLastLayer(
+  void oll({SolveStage stage = SolveStage.oll}) {
+    if (lastLayerOriented(physical)) return; // OLL skip
+    final (u, algorithm) = shortestWithAuf(
       CfopAlgorithms.oll,
-      (after) => _lastLayerOriented(after),
+      (after) => lastLayerOriented(after),
     );
     emit(
-      SolveStage.oll,
+      stage,
       [...SolveSession.turns(MoveLayer.u, u), ...algorithm.moves],
       'Mặt trên thuộc nhóm ${algorithm.group}: '
-      '${_setup(u)}làm ${algorithm.name} để cả mặt trên thành màu vàng.',
+      '${setupText(u)}làm ${algorithm.name} để cả mặt trên thành màu vàng.',
       formula: algorithm.name,
     );
   }
 
-  void pll() {
-    if (_uTurnToSolve(physical) == null) {
-      final (u, algorithm) = _shortestLastLayer(
+  void pll({SolveStage stage = SolveStage.pll}) {
+    if (uTurnToSolve(physical) == null) {
+      final (u, algorithm) = shortestWithAuf(
         CfopAlgorithms.pll,
-        (after) => _uTurnToSolve(after) != null,
+        (after) => uTurnToSolve(after) != null,
       );
       emit(
-        SolveStage.pll,
+        stage,
         [...SolveSession.turns(MoveLayer.u, u), ...algorithm.moves],
         'Tầng trên thuộc nhóm "${algorithm.group!.toLowerCase()}": '
-        '${_setup(u)}làm ${algorithm.name} để đưa các mảnh về đúng chỗ.',
+        '${setupText(u)}làm ${algorithm.name} để đưa các mảnh về đúng chỗ.',
         formula: algorithm.name,
       );
     }
+    finish(stage);
+  }
+
+  /// The last U turn that lines the top layer up with the rest.
+  void finish(SolveStage stage) {
     emit(
-      SolveStage.pll,
-      SolveSession.turns(MoveLayer.u, _uTurnToSolve(physical)!),
+      stage,
+      SolveSession.turns(MoveLayer.u, uTurnToSolve(physical)!),
       'Xoay mặt trên để khớp màu với các tầng dưới. Khối đã được giải!',
     );
   }
 
   /// The algorithm (after lining it up with U turns) reaching [goal] in the
   /// fewest moves.
-  (int, Algorithm) _shortestLastLayer(
+  (int, Algorithm) shortestWithAuf(
     List<Algorithm> algorithms,
     bool Function(CubeState after) goal,
   ) {
@@ -252,11 +272,11 @@ class _Cfop extends SolveSession {
     return best;
   }
 
-  static String _setup(int u) => u == 0
+  static String setupText(int u) => u == 0
       ? ''
       : 'xoay mặt trên (${Move(MoveLayer.u, u).notation}) cho khớp hình rồi ';
 
-  static bool _lastLayerOriented(CubeState state) {
+  static bool lastLayerOriented(CubeState state) {
     final work = state.withCentersNormalized();
     for (var i = 0; i < 9; i++) {
       if (work[i] != Face.u) return false;
@@ -264,7 +284,8 @@ class _Cfop extends SolveSession {
     return true;
   }
 
-  static int? _uTurnToSolve(CubeState state) {
+  /// The U turn (0–3) that solves [state], or null.
+  static int? uTurnToSolve(CubeState state) {
     for (var u = 0; u < 4; u++) {
       if (state.applyAll(SolveSession.turns(MoveLayer.u, u)).isSolved) {
         return u;
@@ -288,6 +309,19 @@ class _Cfop extends SolveSession {
 
   static bool _crossSolved(CubieCube c) =>
       _crossEdges.every((e) => _edgeSolved(c, e.index));
+
+  /// The first two layers are solved.
+  static bool f2lSolved(CubieCube c) =>
+      _crossSolved(c) &&
+      _slots.every(
+        (s) => _cornerSolved(c, s.$1.index) && _edgeSolved(c, s.$2.index),
+      );
+
+  /// The four top edges show yellow on top (a yellow cross).
+  static bool edgesOriented(CubeState state) {
+    final work = state.withCentersNormalized();
+    return [1, 3, 5, 7].every((i) => work[i] == Face.u);
+  }
 }
 
 /// Setup turns (whole cube y, then top layer U) followed by an algorithm.

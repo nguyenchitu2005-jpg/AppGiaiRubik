@@ -7,8 +7,9 @@ App Android (Flutter/Dart) hướng dẫn giải Rubik 3x3:
 - Chọn **trình độ**:
   - **Newbie**: *Phương pháp tầng (Layer by Layer)*, 7 giai đoạn với 7 **công thức cơ bản**, có giải thích từng bước
   - **Pro**: *CFOP (phương pháp Fridrich)*, gồm Cross → F2L → OLL → PLL với **công thức nâng cao** (41 F2L + 57 OLL + 21 PLL), khoảng 60 nước
+  - **Master**: *Phương pháp ZB (Zborowski–Bruchem)*, gồm Cross → F2L 3 cặp → **ZBLS** (302) → **ZBLL** (472), khoảng 52 nước
 - **Giải nhanh**: lời giải ngắn nhất do máy tính tìm (Kociemba, khoảng 20 nước)
-- **Thư viện công thức** chia 2 phần Cơ bản / Nâng cao, có hình nhận dạng từng trường hợp và minh hoạ động
+- **Thư viện công thức** chia 3 phần Cơ bản / Nâng cao / ZB, có hình nhận dạng từng trường hợp và minh hoạ động. Công thức ZBLS/ZBLL lấy từ [Alg Trainer của Tao Yu](https://github.com/tao-yu/Alg-Trainer) (giấy phép MIT, xem `third_party/alg-trainer`)
 
 ## Tải app (Android)
 

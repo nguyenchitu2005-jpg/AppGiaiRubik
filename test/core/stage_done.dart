@@ -57,6 +57,12 @@ bool stageDone(SolveStage stage, CubeState physical) {
           middle &&
           [for (var i = 0; i < 9; i++) i].every((i) => work[i] == Face.u),
     SolveStage.pll => physical.isSolved,
+    SolveStage.zbls =>
+      cross &&
+          corners &&
+          middle &&
+          [1, 3, 5, 7].every((i) => work[i] == Face.u),
+    SolveStage.zbll => physical.isSolved,
     SolveStage.quick => false, // never produced by a human method
   };
 }
