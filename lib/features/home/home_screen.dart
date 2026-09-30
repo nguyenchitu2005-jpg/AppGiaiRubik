@@ -420,7 +420,10 @@ class _MovePad extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Xoay mặt', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Xoay mặt · M: lát giữa',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 8),
             for (final turns in const [1, 3, 2])
               Padding(
@@ -430,23 +433,52 @@ class _MovePad extends StatelessWidget {
                     for (final move in Move.faceMoves.where(
                       (m) => m.turns == turns,
                     ))
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: const Size(0, 40),
-                            ),
-                            onPressed: () => onMove(move),
-                            child: Text(move.notation),
-                          ),
-                        ),
-                      ),
+                      _MoveButton(move: move, onMove: onMove),
+                    // The middle slice, set a little apart from the faces.
+                    const SizedBox(width: 6),
+                    _MoveButton(
+                      move: Move(MoveLayer.m, turns),
+                      onMove: onMove,
+                      slice: true,
+                    ),
                   ],
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MoveButton extends StatelessWidget {
+  const _MoveButton({
+    required this.move,
+    required this.onMove,
+    this.slice = false,
+  });
+
+  final Move move;
+  final ValueChanged<Move> onMove;
+
+  /// A middle-slice turn, tinted to tell it from the faces.
+  final bool slice;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 40),
+            backgroundColor: slice ? colors.secondaryContainer : null,
+            foregroundColor: slice ? colors.onSecondaryContainer : null,
+          ),
+          onPressed: () => onMove(move),
+          child: Text(move.notation),
         ),
       ),
     );

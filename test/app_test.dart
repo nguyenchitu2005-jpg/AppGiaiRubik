@@ -380,6 +380,7 @@ void main() {
         100,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.pump(); // lay out the scrolled list
       await tester.tap(find.text(text));
       await tester.pump();
     }
@@ -411,6 +412,20 @@ void main() {
       const Offset(0, -800),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('move pad turns the middle slice (M)', (tester) async {
+    await pumpApp(tester);
+    for (final m in ['M', "M'", 'M2']) {
+      expect(find.widgetWithText(OutlinedButton, m), findsOneWidget);
+    }
+    await tester.tap(find.widgetWithText(OutlinedButton, 'M'));
+    await tester.pumpAndSettle();
+    expect(painter(tester).state, solved.applyAlgorithm('M'));
+    expect(find.text('Khối đang bị xáo trộn'), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, "M'"));
+    await tester.pumpAndSettle();
+    expect(find.text('Khối đã được giải'), findsOneWidget);
   });
 
   testWidgets('editor: undo and redo edits', (tester) async {
