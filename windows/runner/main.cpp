@@ -27,7 +27,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   // A tall, phone-like window to start with; it can be resized freely.
-  Win32Window::Size size(480, 900);
+  Win32Window::Size size(1280, 800);
   if (!window.Create(L"Rubik Solver", origin, size)) {
     return EXIT_FAILURE;
   }

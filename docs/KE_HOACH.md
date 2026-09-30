@@ -46,7 +46,9 @@ _Cập nhật: 29/09/2026_
 | Nút lát giữa M / M' / M2 trên bàn phím xoay | `68ca3a7` |
 | Menu góc trái trên: **Hẹn giờ giải** (WCA, Ao5/Ao12, lưu lịch sử bằng `shared_preferences`) và **Công thức xáo trộn** (WCA trạng thái ngẫu nhiên, nhanh, luyện OLL/PLL/ZBLL) | `b433cfe` |
 | Nút bóng đèn 💡 trên khối 3D: gợi ý bước tiếp theo theo trình độ (công thức, nước xoay), có nút "Xoay giúp tôi" | `c7ea08b` |
-| Menu **Ký hiệu & cách xoay** cho người mới: 6 mặt, R / R' / R2, lát giữa M E S, 2 tầng (r…), xoay cả khối x y z; khối 3D minh hoạ có mũi tên chỉ hướng; phần luyện tập đoán ký hiệu | (commit này) |
+| Menu **Ký hiệu & cách xoay** cho người mới: 6 mặt, R / R' / R2, lát giữa M E S, 2 tầng (r…), xoay cả khối x y z; khối 3D minh hoạ có mũi tên chỉ hướng; phần luyện tập đoán ký hiệu | `64c74ee` |
+| Phát hành bản **1.1.0** (APK) | `7f71f96` |
+| **Máy tính / web**: bố cục 2 cột khi cửa sổ rộng ≥ 840 px (khối 3D lớn bên trái, điều khiển bên phải; thư viện và xáo trộn dạng lưới); cửa sổ Windows/macOS mặc định 1280×800; web có tiêu đề, mô tả và biểu tượng của app; sửa lỗi chạm "bất kỳ đâu" để dừng đồng hồ chỉ nhận ở cột giữa | (commit này) |
 | Ký hiệu mặt (U·Trên, F·Trước…) trên khối 3D, luôn đứng thẳng, có nút bật/tắt | `4dbec53` |
 | Nút hoàn tác/làm lại ở màn hình nhập màu. Khối tự về tư thế đứng thẳng sau khi xoay | `36a5956` |
 | Ký hiệu mặt trên sơ đồ 2D | `6568574` |

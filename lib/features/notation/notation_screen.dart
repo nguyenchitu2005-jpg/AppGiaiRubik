@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/cube/cube_state.dart';
 import '../../core/cube/move.dart';
 import '../../core/cube/move_description.dart';
+import '../../shared/layout.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../../state/settings.dart';
 import '../viewer3d/cube_animation_controller.dart';
@@ -113,17 +114,22 @@ class _NotationScreenState extends ConsumerState<NotationScreen>
         // Keep the end of the page clear of the system navigation bar
         // (Android draws edge to edge).
         top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = isWideLayout(constraints.maxWidth);
+            final size = wide
+                ? min(constraints.maxHeight * 0.7, constraints.maxWidth * 0.45)
+                : cubeSize;
+            // The demo cube and what the chosen move does: pinned above the
+            // lessons on a phone, beside them on a computer.
+            final demo = Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Pinned: the demo cube and what the chosen move does.
                 SizedBox(
-                  height: cubeSize,
+                  height: size,
                   child: Center(
                     child: SizedBox(
-                      width: cubeSize,
+                      width: size,
                       child: AnimatedCubeView(
                         controller: _animator,
                         hint: _showArrows ? selected : null,
@@ -163,151 +169,172 @@ class _NotationScreenState extends ConsumerState<NotationScreen>
                     ],
                   ),
                 ),
-                const Divider(height: 12),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              ],
+            );
+            final lessons = ListView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              children: [
+                const SpeedSelector(),
+                _Section(
+                  title: 'Cầm khối',
+                  text:
+                      'Cầm khối với mặt trắng ở trên và mặt xanh lá '
+                      'hướng về phía bạn. Mặt đang nhìn thẳng là mặt '
+                      'trước (F). Giữ nguyên cách cầm khi làm theo một '
+                      'chuỗi ký hiệu.',
+                ),
+                _Section(
+                  title: '1. Sáu mặt',
+                  text:
+                      'Mỗi mặt có một chữ cái (tên tiếng Anh). Chữ cái '
+                      'nói về vị trí so với bạn, không phải màu: xoay '
+                      'cả khối thì chữ F vẫn là mặt đang ở trước.',
+                  child: Column(
                     children: [
-                      const SpeedSelector(),
-                      _Section(
-                        title: 'Cầm khối',
-                        text:
-                            'Cầm khối với mặt trắng ở trên và mặt xanh lá '
-                            'hướng về phía bạn. Mặt đang nhìn thẳng là mặt '
-                            'trước (F). Giữ nguyên cách cầm khi làm theo một '
-                            'chuỗi ký hiệu.',
-                      ),
-                      _Section(
-                        title: '1. Sáu mặt',
-                        text:
-                            'Mỗi mặt có một chữ cái (tên tiếng Anh). Chữ cái '
-                            'nói về vị trí so với bạn, không phải màu: xoay '
-                            'cả khối thì chữ F vẫn là mặt đang ở trước.',
-                        child: Column(
-                          children: [
-                            for (final (move, name, english, tip) in _faces)
-                              _FaceRow(
-                                letter: move.notation,
-                                name: name,
-                                english: english,
-                                tip: tip,
-                                selected: selected == move,
-                                onTap: () => _demo(move),
-                              ),
-                          ],
+                      for (final (move, name, english, tip) in _faces)
+                        _FaceRow(
+                          letter: move.notation,
+                          name: name,
+                          english: english,
+                          tip: tip,
+                          selected: selected == move,
+                          onTap: () => _demo(move),
                         ),
-                      ),
-                      _Section(
-                        title: '2. Chiều xoay',
-                        text:
-                            'Chữ cái đứng một mình: xoay mặt đó 90° theo '
-                            'chiều kim đồng hồ khi nhìn thẳng vào nó. Có dấu '
-                            "phẩy (R'): ngược chiều kim đồng hồ. Có số 2 (R2): "
-                            'xoay 2 lần (180°), chiều nào cũng được.',
-                        child: _MoveGrid(
-                          rows: [
-                            for (final turns in const [1, 3, 2])
-                              [
-                                for (final m in Move.faceMoves)
-                                  if (m.turns == turns) m,
-                              ],
-                          ],
-                          selected: selected,
-                          onTap: _demo,
-                        ),
-                      ),
-                      _Section(
-                        title: '3. Lát giữa: M, E, S',
-                        text:
-                            'Xoay lớp giữa, giữ nguyên hai mặt hai bên. M '
-                            '(middle) nằm giữa L và R, xoay theo chiều L; E '
-                            '(equator) nằm giữa U và D, theo chiều D; S '
-                            '(standing) nằm giữa F và B, theo chiều F.',
-                        child: _MoveGrid(
-                          rows: [
-                            for (final layer in [
-                              MoveLayer.m,
-                              MoveLayer.e,
-                              MoveLayer.s,
-                            ])
-                              [
-                                for (final t in const [1, 3, 2]) Move(layer, t),
-                              ],
-                          ],
-                          selected: selected,
-                          onTap: _demo,
-                        ),
-                      ),
-                      _Section(
-                        title: '4. Xoay 2 tầng (chữ thường)',
-                        text:
-                            'Chữ thường xoay mặt đó cùng lớp giữa bên cạnh: '
-                            'r là R và lớp giữa cùng lúc (còn viết Rw). Hay '
-                            'gặp trong công thức nâng cao.',
-                        child: _MoveGrid(
-                          rows: [
-                            [
-                              for (final layer in [
-                                MoveLayer.uw,
-                                MoveLayer.rw,
-                                MoveLayer.fw,
-                                MoveLayer.dw,
-                                MoveLayer.lw,
-                                MoveLayer.bw,
-                              ])
-                                Move(layer),
-                            ],
-                          ],
-                          selected: selected,
-                          onTap: _demo,
-                        ),
-                      ),
-                      _Section(
-                        title: '5. Xoay cả khối: x, y, z',
-                        text:
-                            'Không xoay tầng nào, chỉ đổi cách cầm: x lật '
-                            'cả khối theo chiều R (mặt trước lên trên), y '
-                            'quay theo chiều U (mặt phải ra trước), z nghiêng '
-                            'theo chiều F.',
-                        child: _MoveGrid(
-                          rows: [
-                            for (final layer in [
-                              MoveLayer.x,
-                              MoveLayer.y,
-                              MoveLayer.z,
-                            ])
-                              [
-                                for (final t in const [1, 3, 2]) Move(layer, t),
-                              ],
-                          ],
-                          selected: selected,
-                          onTap: _demo,
-                        ),
-                      ),
-                      _Section(
-                        title: '6. Luyện tập',
-                        text:
-                            'Khối sẽ tự xoay một nước. Bạn đoán xem đó là ký '
-                            'hiệu nào.',
-                        child: _Quiz(
-                          move: _quizMove,
-                          options: _options,
-                          answer: _answer,
-                          score: _score,
-                          asked: _asked,
-                          onNew: _newQuestion,
-                          onReplay: _quizMove == null
-                              ? null
-                              : () => _demo(_quizMove!, arrows: false),
-                          onPick: _pick,
-                        ),
-                      ),
                     ],
                   ),
                 ),
+                _Section(
+                  title: '2. Chiều xoay',
+                  text:
+                      'Chữ cái đứng một mình: xoay mặt đó 90° theo '
+                      'chiều kim đồng hồ khi nhìn thẳng vào nó. Có dấu '
+                      "phẩy (R'): ngược chiều kim đồng hồ. Có số 2 (R2): "
+                      'xoay 2 lần (180°), chiều nào cũng được.',
+                  child: _MoveGrid(
+                    rows: [
+                      for (final turns in const [1, 3, 2])
+                        [
+                          for (final m in Move.faceMoves)
+                            if (m.turns == turns) m,
+                        ],
+                    ],
+                    selected: selected,
+                    onTap: _demo,
+                  ),
+                ),
+                _Section(
+                  title: '3. Lát giữa: M, E, S',
+                  text:
+                      'Xoay lớp giữa, giữ nguyên hai mặt hai bên. M '
+                      '(middle) nằm giữa L và R, xoay theo chiều L; E '
+                      '(equator) nằm giữa U và D, theo chiều D; S '
+                      '(standing) nằm giữa F và B, theo chiều F.',
+                  child: _MoveGrid(
+                    rows: [
+                      for (final layer in [
+                        MoveLayer.m,
+                        MoveLayer.e,
+                        MoveLayer.s,
+                      ])
+                        [
+                          for (final t in const [1, 3, 2]) Move(layer, t),
+                        ],
+                    ],
+                    selected: selected,
+                    onTap: _demo,
+                  ),
+                ),
+                _Section(
+                  title: '4. Xoay 2 tầng (chữ thường)',
+                  text:
+                      'Chữ thường xoay mặt đó cùng lớp giữa bên cạnh: '
+                      'r là R và lớp giữa cùng lúc (còn viết Rw). Hay '
+                      'gặp trong công thức nâng cao.',
+                  child: _MoveGrid(
+                    rows: [
+                      [
+                        for (final layer in [
+                          MoveLayer.uw,
+                          MoveLayer.rw,
+                          MoveLayer.fw,
+                          MoveLayer.dw,
+                          MoveLayer.lw,
+                          MoveLayer.bw,
+                        ])
+                          Move(layer),
+                      ],
+                    ],
+                    selected: selected,
+                    onTap: _demo,
+                  ),
+                ),
+                _Section(
+                  title: '5. Xoay cả khối: x, y, z',
+                  text:
+                      'Không xoay tầng nào, chỉ đổi cách cầm: x lật '
+                      'cả khối theo chiều R (mặt trước lên trên), y '
+                      'quay theo chiều U (mặt phải ra trước), z nghiêng '
+                      'theo chiều F.',
+                  child: _MoveGrid(
+                    rows: [
+                      for (final layer in [
+                        MoveLayer.x,
+                        MoveLayer.y,
+                        MoveLayer.z,
+                      ])
+                        [
+                          for (final t in const [1, 3, 2]) Move(layer, t),
+                        ],
+                    ],
+                    selected: selected,
+                    onTap: _demo,
+                  ),
+                ),
+                _Section(
+                  title: '6. Luyện tập',
+                  text:
+                      'Khối sẽ tự xoay một nước. Bạn đoán xem đó là ký '
+                      'hiệu nào.',
+                  child: _Quiz(
+                    move: _quizMove,
+                    options: _options,
+                    answer: _answer,
+                    score: _score,
+                    asked: _asked,
+                    onNew: _newQuestion,
+                    onReplay: _quizMove == null
+                        ? null
+                        : () => _demo(_quizMove!, arrows: false),
+                    onPick: _pick,
+                  ),
+                ),
               ],
-            ),
-          ),
+            );
+            if (wide) {
+              return Row(
+                children: [
+                  Expanded(child: Center(child: demo)),
+                  const VerticalDivider(width: 1),
+                  SizedBox(
+                    width: min(560.0, constraints.maxWidth * 0.45),
+                    child: lessons,
+                  ),
+                ],
+              );
+            }
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  children: [
+                    demo,
+                    const Divider(height: 12),
+                    Expanded(child: lessons),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

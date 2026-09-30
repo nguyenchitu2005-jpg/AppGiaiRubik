@@ -8,6 +8,7 @@ import '../../core/solver/zb/zb_solver.dart';
 import '../../core/solver/kociemba_solver.dart';
 import '../../core/solver/solve_step.dart';
 import '../../shared/widgets/speed_selector.dart';
+import '../../shared/layout.dart';
 import '../../state/cube_session.dart';
 import '../../state/settings.dart';
 import '../viewer3d/cube_animation_controller.dart';
@@ -138,6 +139,30 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
     Navigator.of(context).pop();
   }
 
+  Widget _playerView(SolutionPlayer player, {required bool wide}) {
+    final view = SolutionPlayerView(
+      player: player,
+      stages: _mode.method?.stages,
+      wide: wide,
+      header: _MethodBanner(mode: _mode),
+      footer: [
+        const SizedBox(height: 8),
+        const SpeedSelector(),
+        const SizedBox(height: 16),
+        ListenableBuilder(
+          listenable: player,
+          builder: (context, _) => FilledButton.icon(
+            onPressed: player.isDone ? _finish : null,
+            icon: const Icon(Icons.check),
+            label: const Text('Hoàn tất'),
+          ),
+        ),
+      ],
+    );
+    if (wide) return view;
+    return ListView(padding: const EdgeInsets.all(16), children: [view]);
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(
@@ -177,36 +202,23 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
         // Keep the end of the page clear of the system navigation bar
         // (Android draws edge to edge).
         top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: switch ((player, _error)) {
-              (_, final Object error) => _ErrorView(error: error),
-              (null, _) => const _Loading(),
-              (final SolutionPlayer player, _) => ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _MethodBanner(mode: _mode),
-                  const SizedBox(height: 8),
-                  SolutionPlayerView(
-                    player: player,
-                    stages: _mode.method?.stages,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = isWideLayout(constraints.maxWidth);
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: wide ? 1400 : 560),
+                child: switch ((player, _error)) {
+                  (_, final Object error) => _ErrorView(error: error),
+                  (null, _) => const _Loading(),
+                  (final SolutionPlayer player, _) => _playerView(
+                    player,
+                    wide: wide,
                   ),
-                  const SizedBox(height: 8),
-                  const SpeedSelector(),
-                  const SizedBox(height: 16),
-                  ListenableBuilder(
-                    listenable: player,
-                    builder: (context, _) => FilledButton.icon(
-                      onPressed: player.isDone ? _finish : null,
-                      icon: const Icon(Icons.check),
-                      label: const Text('Hoàn tất'),
-                    ),
-                  ),
-                ],
+                },
               ),
-            },
-          ),
+            );
+          },
         ),
       ),
     );

@@ -6,6 +6,8 @@ import '../../core/solver/cfop/cfop_algorithms.dart';
 import '../../core/solver/solve_step.dart';
 import '../../core/solver/zb/zb_algorithms.dart';
 import '../../shared/widgets/speed_selector.dart';
+import '../../shared/layout.dart';
+import '../../shared/widgets/card_grid.dart';
 import '../../state/settings.dart';
 import '../guide/solution_player.dart';
 import '../guide/solution_player_view.dart';
@@ -60,10 +62,14 @@ class _Page extends StatelessWidget {
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 560),
-      child: ListView(padding: const EdgeInsets.all(16), children: children),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isWideLayout(constraints.maxWidth) ? 1400 : 560,
+        ),
+        child: ListView(padding: const EdgeInsets.all(16), children: children),
+      ),
     ),
   );
 }
@@ -172,8 +178,12 @@ class _BasicFormulas extends StatelessWidget {
     children: [
       const _MethodHeader(method: SolveMethod.beginner),
       const _Notation(),
-      for (final algorithm in Algorithms.all)
-        _AlgorithmCard(algorithm: algorithm),
+      CardGrid(
+        children: [
+          for (final algorithm in Algorithms.all)
+            _AlgorithmCard(algorithm: algorithm),
+        ],
+      ),
     ],
   );
 }
@@ -240,7 +250,11 @@ List<Widget> _groupedCards(
     _SectionTitle(title, subtitle),
     for (final MapEntry(key: group, value: members) in groups.entries) ...[
       _GroupTitle('$group (${members.length})'),
-      for (final algorithm in members) _CaseCard(algorithm: algorithm),
+      CardGrid(
+        children: [
+          for (final algorithm in members) _CaseCard(algorithm: algorithm),
+        ],
+      ),
     ],
   ];
 }
@@ -464,13 +478,13 @@ class _AlgorithmDemoScreenState extends ConsumerState<AlgorithmDemoScreen>
         // Keep the end of the page clear of the system navigation bar
         // (Android draws edge to edge).
         top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                SolutionPlayerView(player: _player),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = isWideLayout(constraints.maxWidth);
+            final view = SolutionPlayerView(
+              player: _player,
+              wide: wide,
+              footer: [
                 const SizedBox(height: 8),
                 const SpeedSelector(),
                 const SizedBox(height: 12),
@@ -480,8 +494,19 @@ class _AlgorithmDemoScreenState extends ConsumerState<AlgorithmDemoScreen>
                   label: const Text('Xem lại từ đầu'),
                 ),
               ],
-            ),
-          ),
+            );
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: wide ? 1400 : 560),
+                child: wide
+                    ? view
+                    : ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [view],
+                      ),
+              ),
+            );
+          },
         ),
       ),
     );

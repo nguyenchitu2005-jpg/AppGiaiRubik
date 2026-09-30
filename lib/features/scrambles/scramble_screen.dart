@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/solver/scrambles.dart';
+import '../../shared/layout.dart';
+import '../../shared/widgets/card_grid.dart';
 import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
 import '../timer/timer_screen.dart';
@@ -70,48 +72,56 @@ class _ScrambleScreenState extends ConsumerState<ScrambleScreen> {
         // Keep the end of the page clear of the system navigation bar
         // (Android draws edge to edge).
         top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final kind in ScrambleKind.values)
-                      ChoiceChip(
-                        label: Text(kind.label),
-                        selected: kind == _kind,
-                        onSelected: (_) {
-                          setState(() => _kind = kind);
-                          _generate();
-                        },
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${_kind.description} Xáo khi cầm mặt trắng ở trên, mặt '
-                  'xanh lá ở trước.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                if (scrambles == null)
-                  const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
-                  for (final (i, scramble) in scrambles.indexed)
-                    _ScrambleTile(
-                      number: i + 1,
-                      scramble: scramble,
-                      onUse: () => _use(scramble),
-                      onTime: () => _time(scramble),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isWideLayout(constraints.maxWidth) ? 1400 : 560,
+              ),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final kind in ScrambleKind.values)
+                        ChoiceChip(
+                          label: Text(kind.label),
+                          selected: kind == _kind,
+                          onSelected: (_) {
+                            setState(() => _kind = kind);
+                            _generate();
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_kind.description} Xáo khi cầm mặt trắng ở trên, mặt '
+                    'xanh lá ở trước.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  if (scrambles == null)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else
+                    CardGrid(
+                      children: [
+                        for (final (i, scramble) in scrambles.indexed)
+                          _ScrambleTile(
+                            number: i + 1,
+                            scramble: scramble,
+                            onUse: () => _use(scramble),
+                            onTime: () => _time(scramble),
+                          ),
+                      ],
                     ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

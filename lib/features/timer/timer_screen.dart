@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/solver/scrambles.dart';
 import '../../core/timer/solve_times.dart';
+import '../../shared/layout.dart';
 import '../../shared/widgets/cube_net_view.dart';
 import '../../state/timer_history.dart';
 
@@ -216,6 +217,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   _display,
                   key: const ValueKey('timer-display'),
                   style: theme.textTheme.displayLarge?.copyWith(
+                    fontSize: isWideLayout(MediaQuery.sizeOf(context).width)
+                        ? 140
+                        : null,
                     fontWeight: FontWeight.w700,
                     color: color,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -272,27 +276,58 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
               ),
         body: SafeArea(
           top: running,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: running
-                  // Nothing but the time while solving; a touch anywhere
-                  // stops it.
-                  ? timeArea
-                  : Column(
-                      children: [
-                        _ScrambleCard(
-                          kind: _kind,
-                          scramble: _scramble,
-                          onNext: _nextScramble,
-                        ),
-                        Expanded(flex: 3, child: timeArea),
-                        _StatsRow(solves: solves),
-                        const Divider(height: 1),
-                        Expanded(flex: 2, child: _SolveList(solves: solves)),
-                      ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Nothing but the time while solving, over the whole window:
+              // a touch anywhere stops it.
+              if (running) return timeArea;
+              final scrambleCard = _ScrambleCard(
+                kind: _kind,
+                scramble: _scramble,
+                onNext: _nextScramble,
+              );
+              if (isWideLayout(constraints.maxWidth)) {
+                // Computer: the scramble and a big clock on the left, the
+                // statistics and the solves on the right.
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          scrambleCard,
+                          Expanded(child: timeArea),
+                        ],
+                      ),
                     ),
-            ),
+                    const VerticalDivider(width: 1),
+                    SizedBox(
+                      width: 380,
+                      child: Column(
+                        children: [
+                          _StatsRow(solves: solves),
+                          const Divider(height: 1),
+                          Expanded(child: _SolveList(solves: solves)),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Column(
+                    children: [
+                      scrambleCard,
+                      Expanded(flex: 3, child: timeArea),
+                      _StatsRow(solves: solves),
+                      const Divider(height: 1),
+                      Expanded(flex: 2, child: _SolveList(solves: solves)),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

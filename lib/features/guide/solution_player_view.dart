@@ -7,12 +7,19 @@ import 'solution_player.dart';
 
 /// The 3D cube with arrows for the next move, the current stage and step,
 /// the step's moves and the playback controls.
+///
+/// Stacked in a column (inside a scrolling page) on a phone. With [wide],
+/// it fills the space it is given instead: a big cube on the left, the
+/// rest in a scrolling column on the right between [header] and [footer].
 class SolutionPlayerView extends StatelessWidget {
   const SolutionPlayerView({
     super.key,
     required this.player,
     this.stages,
     this.cubeSize = 300,
+    this.wide = false,
+    this.header,
+    this.footer = const [],
   });
 
   final SolutionPlayer player;
@@ -23,37 +30,85 @@ class SolutionPlayerView extends StatelessWidget {
 
   final double cubeSize;
 
+  /// Side by side, for computers and tablets.
+  final bool wide;
+
+  /// Above the stage, in the right column when [wide] (e.g. the method).
+  final Widget? header;
+
+  /// Below the controls, in the right column when [wide].
+  final List<Widget> footer;
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: player,
       builder: (context, _) {
         final step = player.step;
+        Widget cube(double size) => Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: size),
+            child: AnimatedCubeView(
+              controller: player.animator,
+              hint: player.isPlaying ? null : player.nextMove,
+              focus: player.isDone ? null : step?.focus,
+            ),
+          ),
+        );
+        final details = [
+          if (stages != null && step != null)
+            _StageProgress(stages: stages!, stage: step.stage),
+          const SizedBox(height: 8),
+          if (step == null)
+            const _Message('Khối đã được giải sẵn, không cần xoay.')
+          else ...[
+            _StepCard(player: player, step: step),
+            const SizedBox(height: 8),
+            _MoveChips(player: player, step: step),
+          ],
+          const SizedBox(height: 8),
+          _Controls(player: player),
+        ];
+
+        if (wide) {
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final side = constraints.maxWidth * 0.42;
+              final size = [
+                constraints.maxHeight * 0.9,
+                (constraints.maxWidth - side) * 0.85,
+                620.0,
+              ].reduce((a, b) => a < b ? a : b);
+              return Row(
+                children: [
+                  Expanded(child: cube(size)),
+                  const VerticalDivider(width: 1),
+                  SizedBox(
+                    width: side,
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        if (header != null) ...[
+                          header!,
+                          const SizedBox(height: 12),
+                        ],
+                        ...details,
+                        ...footer,
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: cubeSize),
-                child: AnimatedCubeView(
-                  controller: player.animator,
-                  hint: player.isPlaying ? null : player.nextMove,
-                  focus: player.isDone ? null : step?.focus,
-                ),
-              ),
-            ),
-            if (stages != null && step != null)
-              _StageProgress(stages: stages!, stage: step.stage),
-            const SizedBox(height: 8),
-            if (step == null)
-              const _Message('Khối đã được giải sẵn, không cần xoay.')
-            else ...[
-              _StepCard(player: player, step: step),
-              const SizedBox(height: 8),
-              _MoveChips(player: player, step: step),
-            ],
-            const SizedBox(height: 8),
-            _Controls(player: player),
+            if (header != null) ...[header!, const SizedBox(height: 8)],
+            cube(cubeSize),
+            ...details,
+            ...footer,
           ],
         );
       },

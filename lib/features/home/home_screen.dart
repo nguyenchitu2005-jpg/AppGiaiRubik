@@ -11,6 +11,7 @@ import '../../state/cube_session.dart';
 import '../../state/settings.dart';
 import '../input/net_editor_screen.dart';
 import '../../shared/cube_sounds.dart';
+import '../../shared/layout.dart';
 import '../../shared/platform_support.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../guide/guide_screen.dart';
@@ -125,6 +126,159 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final level = ref.watch(solveLevelProvider);
     final theme = Theme.of(context);
 
+    final header = Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 8, 0),
+      child: Row(
+        children: [
+          // The menu: timer, scrambles, formulas…
+          Builder(
+            builder: (context) => IconButton(
+              tooltip: 'Menu',
+              onPressed: Scaffold.of(context).openDrawer,
+              icon: const Icon(Icons.menu),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Rubik Solver',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  solved ? 'Khối đã được giải' : 'Khối đang bị xáo trộn',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: solved
+                        ? Colors.green.shade700
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Thư viện công thức',
+            onPressed: () =>
+                Navigator.of(context)
+                    .pushNamed(AlgorithmLibraryScreen.routeName),
+            icon: const Icon(Icons.menu_book),
+          ),
+        ],
+      ),
+    );
+
+    Widget cube(double size) => SizedBox(
+      height: size,
+      child: Center(
+        child: SizedBox(
+          width: size,
+          child: AnimatedCubeView(
+            controller: _animator,
+            onReorient: _reorient,
+            actions: [
+              IconButton(
+                tooltip: 'Gợi ý',
+                onPressed: _showHint,
+                icon: Icon(
+                  Icons.lightbulb_outline,
+                  color: Colors.amber.shade800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    Widget net(double width) => SizedBox(
+      width: width,
+      child: _AnimatedNet(
+        animator: _animator,
+        showFaceLabels: ref.watch(faceLabelsProvider),
+      ),
+    );
+
+    final controls = <Widget>[
+      _MovePad(onMove: _turn),
+      const SizedBox(height: 8),
+      const SpeedSelector(),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: controller.scramble,
+              icon: const Icon(Icons.shuffle),
+              label: const Text('Xáo trộn'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: controller.reset,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Đặt lại'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(NetEditorScreen.routeName),
+              icon: const Icon(Icons.edit),
+              label: const Text('Nhập màu'),
+            ),
+          ),
+        ],
+      ),
+      if (ref.watch(cameraScanSupportedProvider)) ...[
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () =>
+              Navigator.of(context).pushNamed(ScanScreen.routeName),
+          icon: const Icon(Icons.camera_alt),
+          label: const Text('Quét khối bằng camera'),
+        ),
+      ],
+      const SizedBox(height: 16),
+      const _LevelPicker(),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: solved
+                  ? null
+                  : () => _openGuide(session.cube, SolveMode.of(level)),
+              icon: Icon(level.icon),
+              label: const Text('Học cách giải'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FilledButton.tonalIcon(
+              onPressed: solved
+                  ? null
+                  : () => _openGuide(session.cube, SolveMode.quick),
+              icon: Icon(SolveMode.quick.icon),
+              label: const Text('Giải nhanh'),
+            ),
+          ),
+        ],
+      ),
+      if (session.scramble.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        _NotationCard(title: 'Chuỗi xáo trộn', moves: session.scramble),
+      ],
+      if (session.moves.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        _NotationCard(title: 'Các bước đã xoay', moves: session.moves),
+      ],
+    ];
+
     return Scaffold(
       drawer: const AppDrawer(),
       body: DecoratedBox(
@@ -135,201 +289,100 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
         child: SafeArea(
+          // Very wide screens: keep the two columns together in the middle.
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
+              constraints: const BoxConstraints(maxWidth: 1600),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // Share the height: 3D cube, then the flat net, then the
-                  // scrolling buttons (move pad first).
                   // On Android the first frame can come before the window has
                   // a size: wait for the real one rather than lay out at 0×0.
                   if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
                     return const SizedBox.shrink();
                   }
                   final height = constraints.maxHeight;
+
+                  if (isWideLayout(constraints.maxWidth)) {
+                    // Computer or tablet: the cube and the net on the left, big;
+                    // the controls on the right.
+                    final side = math.min(520.0, constraints.maxWidth * 0.42);
+                    final left = constraints.maxWidth - side - 1;
+                    final netHeight = math.min(height * 0.28, 280.0);
+                    final cubeSize = math.max(
+                      0.0,
+                      math.min(
+                        math.min(left * 0.8, 560.0),
+                        height - netHeight - 110,
+                      ),
+                    );
+                    return Column(
+                      children: [
+                        header,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    cube(cubeSize),
+                                    _RecentMoves(moves: session.moves),
+                                    const SizedBox(height: 8),
+                                    net(netHeight * 4 / 3),
+                                  ],
+                                ),
+                              ),
+                              const VerticalDivider(width: 1),
+                              SizedBox(
+                                width: side,
+                                child: ListView(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    16,
+                                  ),
+                                  children: controls,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  // Phone: share the height, the 3D cube, then the flat net,
+                  // then the scrolling buttons (move pad first).
+                  final width = math.min(constraints.maxWidth, 560.0);
                   final cubeSize = math.min(height * 0.30, 300.0);
                   final netHeight = math.min(height * 0.22, 240.0);
                   final netWidth = math.max(
                     0.0,
-                    math.min(netHeight * 4 / 3, constraints.maxWidth - 32),
+                    math.min(netHeight * 4 / 3, width - 32),
                   );
-                  return Column(
-                    children: [
-                      // Pinned: the cube and the net stay in view while the
-                      // buttons below scroll, so every turn can be watched.
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(4, 8, 8, 0),
-                        child: Row(
-                          children: [
-                            // The menu: timer, scrambles, formulas…
-                            Builder(
-                              builder: (context) => IconButton(
-                                tooltip: 'Menu',
-                                onPressed: Scaffold.of(context).openDrawer,
-                                icon: const Icon(Icons.menu),
-                              ),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Rubik Solver',
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  Text(
-                                    solved
-                                        ? 'Khối đã được giải'
-                                        : 'Khối đang bị xáo trộn',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: solved
-                                          ? Colors.green.shade700
-                                          : theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Thư viện công thức',
-                              onPressed: () => Navigator.of(context)
-                                  .pushNamed(AlgorithmLibraryScreen.routeName),
-                              icon: const Icon(Icons.menu_book),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(
-                        height: cubeSize,
-                        child: Center(
-                          child: SizedBox(
-                            width: cubeSize,
-                            child: AnimatedCubeView(
-                              controller: _animator,
-                              onReorient: _reorient,
-                              actions: [
-                                IconButton(
-                                  tooltip: 'Gợi ý',
-                                  onPressed: _showHint,
-                                  icon: Icon(
-                                    Icons.lightbulb_outline,
-                                    color: Colors.amber.shade800,
-                                  ),
-                                ),
-                              ],
+                  return Center(
+                    child: SizedBox(
+                      width: width,
+                      child: Column(
+                        children: [
+                          // Pinned: the cube and the net stay in view while the
+                          // buttons below scroll, so every turn can be watched.
+                          header,
+                          cube(cubeSize),
+                          _RecentMoves(moves: session.moves),
+                          const SizedBox(height: 4),
+                          net(netWidth),
+                          const Divider(height: 12),
+                          Expanded(
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                              children: controls,
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                      _RecentMoves(moves: session.moves),
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        width: netWidth,
-                        child: _AnimatedNet(
-                          animator: _animator,
-                          showFaceLabels: ref.watch(faceLabelsProvider),
-                        ),
-                      ),
-                      const Divider(height: 12),
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                          children: [
-                            _MovePad(onMove: _turn),
-                            const SizedBox(height: 8),
-                            const SpeedSelector(),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: FilledButton.icon(
-                                    onPressed: controller.scramble,
-                                    icon: const Icon(Icons.shuffle),
-                                    label: const Text('Xáo trộn'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: controller.reset,
-                                    icon: const Icon(Icons.restart_alt),
-                                    label: const Text('Đặt lại'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => Navigator.of(context)
-                                        .pushNamed(NetEditorScreen.routeName),
-                                    icon: const Icon(Icons.edit),
-                                    label: const Text('Nhập màu'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (ref.watch(cameraScanSupportedProvider)) ...[
-                              const SizedBox(height: 8),
-                              OutlinedButton.icon(
-                                onPressed: () =>
-                                    Navigator.of(context)
-                                        .pushNamed(ScanScreen.routeName),
-                                icon: const Icon(Icons.camera_alt),
-                                label: const Text('Quét khối bằng camera'),
-                              ),
-                            ],
-                            const SizedBox(height: 16),
-                            const _LevelPicker(),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: FilledButton.icon(
-                                    onPressed: solved
-                                        ? null
-                                        : () => _openGuide(
-                                            session.cube,
-                                            SolveMode.of(level),
-                                          ),
-                                    icon: Icon(level.icon),
-                                    label: const Text('Học cách giải'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: FilledButton.tonalIcon(
-                                    onPressed: solved
-                                        ? null
-                                        : () => _openGuide(
-                                            session.cube,
-                                            SolveMode.quick,
-                                          ),
-                                    icon: Icon(SolveMode.quick.icon),
-                                    label: const Text('Giải nhanh'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (session.scramble.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              _NotationCard(
-                                title: 'Chuỗi xáo trộn',
-                                moves: session.scramble,
-                              ),
-                            ],
-                            if (session.moves.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              _NotationCard(
-                                title: 'Các bước đã xoay',
-                                moves: session.moves,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   );
                 },
               ),

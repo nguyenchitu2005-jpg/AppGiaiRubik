@@ -1,11 +1,11 @@
 {
-    "name": "rubik_solver",
-    "short_name": "rubik_solver",
+    "name": "Rubik Solver",
+    "short_name": "Rubik Solver",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F7FAFF",
+    "theme_color": "#1F5FFF",
+    "description": "Hướng dẫn giải Rubik 3x3: khối 3D, công thức cơ bản, CFOP và ZB, hẹn giờ và xáo trộn.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

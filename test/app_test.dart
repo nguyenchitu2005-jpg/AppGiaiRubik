@@ -164,6 +164,7 @@ void main() {
       await tester.pump();
     }
     expect(finder, findsWidgets);
+    await tester.pumpAndSettle(); // e.g. the page transition
   }
 
   testWidgets('guide: learn step by step, switch to quick, finish', (

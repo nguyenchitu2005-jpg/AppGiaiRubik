@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,7 @@ import '../../core/cube/cube_validator.dart';
 import '../../core/cube/face.dart';
 import '../../core/cube/move.dart';
 import '../../shared/cube_palette.dart';
+import '../../shared/layout.dart';
 import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
 import '../../state/settings.dart';
@@ -151,73 +154,123 @@ class _NetEditorScreenState extends ConsumerState<NetEditorScreen> {
         // Keep the end of the page clear of the system navigation bar
         // (Android draws edge to edge).
         top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (widget.notice != null)
-                  Card(
-                    color: theme.colorScheme.secondaryContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(widget.notice!),
-                    ),
-                  ),
-                Text(
-                  'Cầm khối với tâm trắng ở trên, tâm xanh lá hướng về phía bạn. '
-                  'Chọn màu bên dưới rồi chạm vào ô trên sơ đồ hoặc trên khối 3D để tô.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 260),
-                    child: CubeView(
-                      state: _cube,
-                      onStickerTap: _paint,
-                      onReorient: _reorient,
-                    ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final notice = [
+              if (widget.notice != null)
+                Card(
+                  color: theme.colorScheme.secondaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(widget.notice!),
                   ),
                 ),
-                CubeNetView(
+              Text(
+                'Cầm khối với tâm trắng ở trên, tâm xanh lá hướng về phía bạn. '
+                'Chọn màu bên dưới rồi chạm vào ô trên sơ đồ hoặc trên khối 3D để tô.',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ];
+            Widget cube(double size) => Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: size),
+                child: CubeView(
                   state: _cube,
                   onStickerTap: _paint,
-                  showFaceLabels: ref.watch(faceLabelsProvider),
+                  onReorient: _reorient,
                 ),
-                const SizedBox(height: 16),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final face in Face.values)
-                      _BrushChip(
-                        face: face,
-                        count: counts[face]!,
-                        selected: face == _brush,
-                        onTap: () => setState(() => _brush = face),
-                      ),
-                  ],
+              ),
+            );
+            final net = CubeNetView(
+              state: _cube,
+              onStickerTap: _paint,
+              showFaceLabels: ref.watch(faceLabelsProvider),
+            );
+            final brushes = [
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final face in Face.values)
+                    _BrushChip(
+                      face: face,
+                      count: counts[face]!,
+                      selected: face == _brush,
+                      onTap: () => setState(() => _brush = face),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (!complete)
+                Text(
+                  'Mỗi màu cần đúng 9 ô.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                if (!complete)
-                  Text(
-                    'Mỗi màu cần đúng 9 ô.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: complete ? _finish : null,
+                icon: const Icon(Icons.check),
+                label: const Text('Dùng trạng thái này'),
+              ),
+            ];
+
+            if (isWideLayout(constraints.maxWidth)) {
+              // Computer: the cube and the net big on the left (easy to hit
+              // with a mouse), the colors and the instructions on the right.
+              final height = constraints.maxHeight;
+              final netWidth = min(
+                constraints.maxWidth * 0.5,
+                height * 0.5 * 4 / 3,
+              );
+              return Row(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        cube(min(height * 0.42, 380)),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: SizedBox(width: netWidth, child: net),
+                        ),
+                      ],
                     ),
                   ),
-                const SizedBox(height: 8),
-                FilledButton.icon(
-                  onPressed: complete ? _finish : null,
-                  icon: const Icon(Icons.check),
-                  label: const Text('Dùng trạng thái này'),
+                  const VerticalDivider(width: 1),
+                  SizedBox(
+                    width: min(420, constraints.maxWidth * 0.4),
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        ...notice,
+                        const SizedBox(height: 16),
+                        ...brushes,
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    ...notice,
+                    cube(260),
+                    net,
+                    const SizedBox(height: 16),
+                    ...brushes,
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
