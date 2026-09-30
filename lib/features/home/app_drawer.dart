@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/platform_support.dart';
 import '../input/net_editor_screen.dart';
 import '../library/algorithm_library_screen.dart';
+import '../notation/notation_screen.dart';
 import '../scanner/scan_screen.dart';
 import '../scrambles/scramble_screen.dart';
 import '../timer/timer_screen.dart';
@@ -63,6 +64,12 @@ class AppDrawer extends ConsumerWidget {
               title: const Text('Trang chủ'),
               subtitle: const Text('Khối 3D, xoay mặt và hướng dẫn giải'),
               onTap: () => Navigator.of(context).pop(),
+            ),
+            item(
+              Icons.school_outlined,
+              'Ký hiệu & cách xoay',
+              "Cho người mới: 6 mặt, R, R', R2, M, x, y, z…",
+              NotationScreen.routeName,
             ),
             item(
               Icons.timer_outlined,

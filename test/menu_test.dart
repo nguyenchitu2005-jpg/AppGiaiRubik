@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rubik_solver/app.dart';
+import 'package:rubik_solver/core/cube/cube_state.dart';
 import 'package:rubik_solver/core/cube/move.dart';
+import 'package:rubik_solver/features/viewer3d/cube_painter.dart';
 import 'package:rubik_solver/shared/cube_sounds.dart';
 import 'package:rubik_solver/shared/platform_support.dart';
 import 'package:rubik_solver/state/cube_session.dart';
@@ -212,5 +214,60 @@ void main() {
     await openFromMenu(tester, 'Công thức xáo trộn');
     await waitFor(tester, find.textContaining('#1 · '));
     expect(tester.takeException(), isNull);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await openFromMenu(tester, 'Ký hiệu & cách xoay');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mặt phải (Right)'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('notation: tap a move to see it; the quiz checks answers', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await openFromMenu(tester, 'Ký hiệu & cách xoay');
+    await tester.pumpAndSettle();
+    CubeState shown() => tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((w) => w.painter)
+        .whereType<CubePainter>()
+        .first
+        .state;
+
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey("notation-R'")),
+      find.byType(Scrollable).last,
+      const Offset(0, -200),
+    );
+    await tester.tap(find.byKey(const ValueKey("notation-R'")));
+    await tester.pump();
+    // Arrows first, then the turn.
+    expect(shown(), CubeState.solved());
+    await tester.pumpAndSettle();
+    expect(shown(), CubeState.solved().applyAlgorithm("R'"));
+    expect(
+      find.textContaining('Xoay mặt phải ngược chiều kim đồng hồ'),
+      findsOneWidget,
+    );
+
+    await tester.dragUntilVisible(
+      find.text('Bắt đầu'),
+      find.byType(Scrollable).last,
+      const Offset(0, -400),
+    );
+    await tester.tap(find.text('Bắt đầu'));
+    await tester.pumpAndSettle();
+    final right = Move.faceMoves.firstWhere(
+      (m) =>
+          CubeState.solved().apply(m) == shown() &&
+          find.byKey(ValueKey('quiz-${m.notation}')).evaluate().isNotEmpty,
+    );
+    await tester.tap(find.byKey(ValueKey('quiz-${right.notation}')));
+    await tester.pump();
+    expect(find.textContaining('Đúng rồi!'), findsOneWidget);
+    expect(find.text('Đúng 1 / 1 câu'), findsOneWidget);
   });
 }
