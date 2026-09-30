@@ -14,6 +14,7 @@ import '../../shared/cube_sounds.dart';
 import '../../shared/platform_support.dart';
 import '../../shared/widgets/speed_selector.dart';
 import '../guide/guide_screen.dart';
+import 'app_drawer.dart';
 import '../library/algorithm_library_screen.dart';
 import '../scanner/scan_screen.dart';
 import '../viewer3d/cube_animation_controller.dart';
@@ -97,6 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final theme = Theme.of(context);
 
     return Scaffold(
+      drawer: const AppDrawer(),
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: RadialGradient(
@@ -129,9 +131,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       // Pinned: the cube and the net stay in view while the
                       // buttons below scroll, so every turn can be watched.
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                        padding: const EdgeInsets.fromLTRB(4, 8, 8, 0),
                         child: Row(
                           children: [
+                            // The menu: timer, scrambles, formulas…
+                            Builder(
+                              builder: (context) => IconButton(
+                                tooltip: 'Menu',
+                                onPressed: Scaffold.of(context).openDrawer,
+                                icon: const Icon(Icons.menu),
+                              ),
+                            ),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,

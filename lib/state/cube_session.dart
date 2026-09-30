@@ -47,6 +47,13 @@ class CubeSessionController extends Notifier<CubeSession> {
     );
   }
 
+  /// Scrambles with a given sequence (e.g. one picked on the scramble
+  /// screen); the home screen animates it like its own scrambles.
+  void scrambleWith(List<Move> scramble) => state = CubeSession(
+    cube: CubeState.solved().applyAll(scramble),
+    scramble: scramble,
+  );
+
   void reset() => state = CubeSession(cube: CubeState.solved());
 
   /// Replaces the cube with one entered by the user (editor or scanner).

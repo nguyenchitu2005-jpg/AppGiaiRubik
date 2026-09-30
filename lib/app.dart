@@ -4,6 +4,8 @@ import 'features/home/home_screen.dart';
 import 'features/input/net_editor_screen.dart';
 import 'features/library/algorithm_library_screen.dart';
 import 'features/scanner/scan_screen.dart';
+import 'features/scrambles/scramble_screen.dart';
+import 'features/timer/timer_screen.dart';
 
 class RubikApp extends StatelessWidget {
   const RubikApp({super.key});
@@ -23,6 +25,8 @@ class RubikApp extends StatelessWidget {
         NetEditorScreen.routeName: (_) => const NetEditorScreen(),
         AlgorithmLibraryScreen.routeName: (_) => const AlgorithmLibraryScreen(),
         ScanScreen.routeName: (_) => const ScanScreen(),
+        TimerScreen.routeName: (_) => const TimerScreen(),
+        ScrambleScreen.routeName: (_) => const ScrambleScreen(),
       },
     );
   }
