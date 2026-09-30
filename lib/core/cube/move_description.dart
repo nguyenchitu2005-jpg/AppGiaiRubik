@@ -16,6 +16,12 @@ extension MoveDescription on Move {
       MoveLayer.x => 'cả khối theo trục mặt phải',
       MoveLayer.y => 'cả khối theo trục mặt trên',
       MoveLayer.z => 'cả khối theo trục mặt trước',
+      MoveLayer.uw => '2 tầng trên (mặt trên và lát giữa)',
+      MoveLayer.rw => '2 tầng phải (mặt phải và lát giữa)',
+      MoveLayer.fw => '2 tầng trước (mặt trước và lát giữa)',
+      MoveLayer.dw => '2 tầng dưới (mặt dưới và lát giữa)',
+      MoveLayer.lw => '2 tầng trái (mặt trái và lát giữa)',
+      MoveLayer.bw => '2 tầng sau (mặt sau và lát giữa)',
     };
     final how = switch (turns) {
       1 => 'theo chiều kim đồng hồ',

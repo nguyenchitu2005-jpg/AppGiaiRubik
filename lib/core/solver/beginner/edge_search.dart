@@ -10,8 +10,9 @@ import '../../cube/move.dart';
 abstract final class EdgeSearch {
   static const int maxDepth = 12;
 
-  /// `_next[move][slot * 2 + flip]` is where an edge goes under `move`.
-  static final List<List<int>> _next = [
+  /// `next[move][slot * 2 + flip]` is where an edge goes under `move`
+  /// (one of [Move.faceMoves]).
+  static final List<List<int>> next = [
     for (final move in Move.faceMoves) _moveTable(move),
   ];
 
@@ -64,7 +65,7 @@ abstract final class EdgeSearch {
       if (lastFace >= 0 && face % 3 == lastFace % 3 && face < lastFace) {
         continue;
       }
-      final table = _next[m];
+      final table = next[m];
       path.add(m);
       if (_search(
         [for (final s in state) table[s]],
@@ -101,17 +102,17 @@ abstract final class EdgeSearch {
     distance[piece * 2] = 0;
     var frontier = [piece * 2];
     while (frontier.isNotEmpty) {
-      final next = <int>[];
+      final grown = <int>[];
       for (final s in frontier) {
-        for (final table in _next) {
+        for (final table in next) {
           final t = table[s];
           if (distance[t] < 0) {
             distance[t] = distance[s] + 1;
-            next.add(t);
+            grown.add(t);
           }
         }
       }
-      frontier = next;
+      frontier = grown;
     }
     return distance;
   }

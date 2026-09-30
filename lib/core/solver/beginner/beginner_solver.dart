@@ -6,6 +6,7 @@ import '../../cube/face.dart';
 import '../../cube/move.dart';
 import '../algorithms.dart';
 import '../move_simplifier.dart';
+import '../solve_session.dart';
 import '../solve_step.dart';
 import 'edge_search.dart';
 
@@ -62,58 +63,11 @@ const _dCorners = [Corner.dfr, Corner.dlf, Corner.dbl, Corner.drb];
 const _middleEdges = [Edge.fr, Edge.fl, Edge.bl, Edge.br];
 const _uCorners = [Corner.urf, Corner.ufl, Corner.ulb, Corner.ubr];
 
-/// Solving session. [physical] carries real colors (white = [Face.u]
-/// label); moves are positional, so they are searched on the
-/// center-normalized cube and applied to [physical] unchanged.
-class _Solve {
-  _Solve(this.physical);
+/// Solving session for the beginner method.
+class _Solve extends SolveSession {
+  _Solve(super.physical);
 
-  CubeState physical;
-  final List<SolveStep> steps = [];
-
-  CubieCube _cubie(CubeState physical) =>
-      CubieCube.fromState(physical.withCentersNormalized());
-
-  CubieCube get cubie => _cubie(physical);
-
-  CubieCube simulate(List<Move> moves) => _cubie(physical.applyAll(moves));
-
-  void emit(
-    SolveStage stage,
-    List<Move> moves,
-    String explanation, {
-    String? formula,
-    Set<Face>? focus,
-  }) {
-    final simplified = simplifyMoves(moves);
-    if (simplified.isEmpty) return;
-    physical = physical.applyAll(simplified);
-    steps.add(
-      SolveStep(
-        stage: stage,
-        moves: simplified,
-        explanation: explanation,
-        formula: formula,
-        focus: focus,
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------- stage 0
-
-  void hold() {
-    for (final rotation in ['', 'z2', 'x2', 'x', "x'", 'z', "z'"]) {
-      final moves = Move.parseSequence(rotation);
-      if (physical.applyAll(moves).center(Face.d) == Face.u) {
-        emit(
-          SolveStage.hold,
-          moves,
-          'Lật khối ($rotation) để tâm trắng ở dưới, tâm vàng ở trên.',
-        );
-        return;
-      }
-    }
-  }
+  CubieCube _cubie(CubeState physical) => SolveSession.cubieOf(physical);
 
   // ---------------------------------------------------------------- stage 1
 
@@ -138,15 +92,15 @@ class _Solve {
           (best, bestPiece, bestLength) = (moves, piece, moves.length);
         }
       }
-      final colors = _labelsToColors(CubieCube.edgeColors[bestPiece]);
+      final colors = colorsOf(CubieCube.edgeColors[bestPiece]);
       final side = colors.last;
       emit(
         SolveStage.whiteCross,
         best,
-        'Cạnh ${_names(colors)}: đưa xuống mặt dưới sao cho màu trắng ở dưới '
+        'Cạnh ${SolveSession.names(colors)}: đưa xuống mặt dưới sao cho màu trắng ở dưới '
         'và màu ${side.colorName.toLowerCase()} trùng tâm '
         '${side.colorName.toLowerCase()}.',
-        focus: colors.toSet(),
+        focus: [colors.toSet()],
       );
     }
   }
@@ -173,7 +127,7 @@ class _Solve {
       );
       if (best != null) {
         final colors = _newlySolved(best.moves, corners: _dCorners);
-        final corner = 'góc ${_names(colors)}';
+        final corner = 'góc ${SolveSession.names(colors)}';
         _emitSetup(
           SolveStage.whiteCorners,
           best,
@@ -186,7 +140,7 @@ class _Solve {
           "Lặp R U R' U' ${best.reps} lần đến khi $corner về đúng chỗ, "
           'màu trắng ở dưới.',
           formula: "R U R' U' × ${best.reps}",
-          focus: colors,
+          focus: [colors],
         );
         continue;
       }
@@ -196,7 +150,7 @@ class _Solve {
         [
           for (var y = 0; y < 4; y++)
             if (!_cornerSolved(
-              simulate(_turns(MoveLayer.y, y)),
+              simulate(SolveSession.turns(MoveLayer.y, y)),
               Corner.dfr.index,
             ))
               _Plan(y, 0, Move.parseSequence(_trigger)),
@@ -244,7 +198,7 @@ class _Solve {
       );
       if (best != null) {
         final colors = _newlySolved(best.moves, edges: _middleEdges);
-        final edge = 'cạnh ${_names(colors)}';
+        final edge = 'cạnh ${SolveSession.names(colors)}';
         final side = best.right ? 'phải' : 'trái';
         _emitSetup(
           SolveStage.middleLayer,
@@ -257,7 +211,7 @@ class _Solve {
           best.body,
           'Đưa $edge xuống tầng giữa bên $side bằng công thức $side.',
           formula: 'Công thức $side',
-          focus: colors,
+          focus: [colors],
         );
         continue;
       }
@@ -265,7 +219,10 @@ class _Solve {
       // An edge sits in the middle layer but wrong: push it out to the top.
       final pop = _shortest([
         for (var y = 0; y < 4; y++)
-          if (!_edgeSolved(simulate(_turns(MoveLayer.y, y)), Edge.fr.index))
+          if (!_edgeSolved(
+            simulate(SolveSession.turns(MoveLayer.y, y)),
+            Edge.fr.index,
+          ))
             _Plan(y, 0, Move.parseSequence(_rightInsert), right: true),
       ], _firstLayerSolved)!;
       _emitSetup(
@@ -335,7 +292,7 @@ class _Solve {
     final finish = _uTurnToSolve(physical.withCentersNormalized());
     emit(
       SolveStage.lastLayerEdges,
-      _turns(MoveLayer.u, finish ?? 0),
+      SolveSession.turns(MoveLayer.u, finish ?? 0),
       'Xoay mặt trên để khớp màu với các tầng dưới. Khối đã được giải!',
     );
   }
@@ -362,7 +319,8 @@ class _Solve {
       var bestLength = 1 << 30;
       for (final setups in plans) {
         final parts = [
-          for (final u in setups) [..._turns(MoveLayer.u, u), ...alg],
+          for (final u in setups)
+            [...SolveSession.turns(MoveLayer.u, u), ...alg],
         ];
         final moves = [for (final p in parts) ...p];
         if (moves.length < bestLength && reached(moves)) {
@@ -437,16 +395,6 @@ class _Solve {
           .map((f) => f.letter)
           .join();
 
-  /// Physical colors of a piece given by work-frame labels.
-  List<Face> _labelsToColors(List<Face> labels) => [
-    for (final label in labels) physical.center(label),
-  ];
-
-  String _names(Iterable<Face> colors) {
-    final sorted = colors.toList()..sort((a, b) => a.index - b.index);
-    return sorted.map((f) => f.colorName).join('–');
-  }
-
   /// Emits the plan's setup turns (if any) as their own step:
   /// "Xoay cả khối (y) và xoay mặt trên (U2) để {goal}."
   void _emitSetup(SolveStage stage, _Plan plan, String goal, Set<Face>? focus) {
@@ -460,14 +408,14 @@ class _Solve {
       stage,
       plan.setup,
       text[0].toUpperCase() + text.substring(1),
-      focus: focus,
+      focus: focus == null ? null : [focus],
     );
   }
 
   /// How many U turns (0–3) solve the cube, or null if none does.
   int? _uTurnToSolve(CubeState work) {
     for (var u = 0; u < 4; u++) {
-      if (work.applyAll(_turns(MoveLayer.u, u)).isSolved) return u;
+      if (work.applyAll(SolveSession.turns(MoveLayer.u, u)).isSolved) return u;
     }
     return null;
   }
@@ -480,11 +428,9 @@ class _Solve {
     return false;
   }
 
-  CubieCube _applyToCubie(CubieCube c, int uTurns) =>
-      CubieCube.fromState(c.toState().applyAll(_turns(MoveLayer.u, uTurns)));
-
-  static List<Move> _turns(MoveLayer layer, int turns) =>
-      turns % 4 == 0 ? const [] : [Move(layer, turns % 4)];
+  CubieCube _applyToCubie(CubieCube c, int uTurns) => CubieCube.fromState(
+    c.toState().applyAll(SolveSession.turns(MoveLayer.u, uTurns)),
+  );
 
   static List<List<int>> _setupCombinations(int length) {
     if (length == 0) return [[]];

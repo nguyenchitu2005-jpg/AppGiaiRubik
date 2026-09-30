@@ -8,6 +8,7 @@ import 'package:rubik_solver/features/input/net_editor_screen.dart';
 import 'package:rubik_solver/features/viewer3d/cube_painter.dart';
 import 'package:rubik_solver/features/viewer3d/cube_scene.dart';
 import 'package:rubik_solver/features/viewer3d/cube_view.dart';
+import 'package:rubik_solver/shared/cube_sounds.dart';
 import 'package:rubik_solver/shared/platform_support.dart';
 import 'package:rubik_solver/shared/widgets/cube_net_view.dart';
 
@@ -22,7 +23,11 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [cameraScanSupportedProvider.overrideWithValue(phone)],
+        overrides: [
+          cameraScanSupportedProvider.overrideWithValue(phone),
+          // No audio plugin in widget tests.
+          cubeSoundsProvider.overrideWithValue(_SilentSounds()),
+        ],
         child: const RubikApp(),
       ),
     );
@@ -216,6 +221,136 @@ void main() {
     await tester.tap(find.byTooltip('Tự chạy'));
     await tester.pumpAndSettle();
     expect(find.text('Hoàn thành! Khối đã được giải.'), findsOneWidget);
+  });
+
+  testWidgets('level: Pro teaches CFOP with advanced formulas', (tester) async {
+    await pumpApp(tester);
+    expect(
+      find.text('Phương pháp tầng (Layer by Layer) · Công thức cơ bản'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Pro'));
+    await tester.pump();
+    expect(
+      find.text('CFOP (phương pháp Fridrich) · Công thức nâng cao'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Xáo trộn'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Học cách giải'));
+    await tester.pump();
+    await waitFor(tester, find.textContaining(RegExp(r'^Bước 1/\d+$')));
+    expect(find.text('CFOP (phương pháp Fridrich)'), findsOneWidget);
+    expect(find.text('Pro · Công thức nâng cao'), findsOneWidget);
+
+    // Past holding the cube: the cross, stage 1 of 4.
+    await tester.tap(find.byTooltip('Bước tiếp'));
+    await tester.pumpAndSettle();
+    expect(find.text('Giai đoạn 1/4: Cross'), findsOneWidget);
+    await tester.tap(find.byTooltip('Bước tiếp'));
+    await tester.pumpAndSettle();
+    expect(find.text('Giai đoạn 2/4: F2L'), findsOneWidget);
+    // Each pair names its formula (or the lift that frees a stuck piece).
+    expect(
+      find.textContaining(RegExp(r"^(F2L \d+|R U['2]? R')$")),
+      findsOneWidget,
+    );
+
+    // Newbie in the guide switches the level back.
+    await tester.tap(find.text('Newbie'));
+    await tester.pump();
+    await waitFor(tester, find.text('Chuẩn bị: Cầm khối'));
+    expect(find.text('Newbie · Công thức cơ bản'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Phương pháp tầng (Layer by Layer) · Công thức cơ bản'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('library: advanced formulas of CFOP, with demos', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Pro'));
+    await tester.tap(find.byTooltip('Thư viện công thức'));
+    await tester.pumpAndSettle();
+    // Opens on the Pro tab.
+    expect(
+      find.text('Phương pháp: CFOP (phương pháp Fridrich)'),
+      findsOneWidget,
+    );
+    expect(find.text('F2L 1'), findsOneWidget);
+
+    Future<void> scrollTo(Finder finder) => tester.scrollUntilVisible(
+      finder,
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await scrollTo(find.text('OLL 27 · Sune'));
+    await scrollTo(find.text('T-perm'));
+    await tester.tap(find.byTooltip('Xem minh hoạ T-perm'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Tự chạy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hoàn thành! Khối đã được giải.'), findsOneWidget);
+    expect(painter(tester).state.isSolved, isTrue);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Công thức cơ bản · Newbie'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sune'), findsOneWidget);
+  });
+
+  testWidgets('Pro guide and advanced library fit a narrow phone', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    // A 360 × 800 phone, as most Android phones are wide.
+    tester.view
+      ..physicalSize = const Size(1080, 2400)
+      ..devicePixelRatio = 3;
+    await tester.pumpAndSettle();
+
+    // The buttons scroll under the pinned cube and net.
+    Future<void> tapInList(String text) async {
+      await tester.scrollUntilVisible(
+        find.text(text),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text(text));
+      await tester.pump();
+    }
+
+    await tapInList('Xáo trộn');
+    await tester.pumpAndSettle();
+    await tapInList('Pro');
+    await tapInList('Học cách giải');
+    await tester.pump();
+    await waitFor(tester, find.textContaining(RegExp(r'^Bước 1/\d+$')));
+    expect(find.text('Giải nhanh'), findsWidgets);
+    await tester.pumpAndSettle(); // the page transition
+    for (var i = 0; i < 2; i++) {
+      await tester.ensureVisible(find.byTooltip('Bước tiếp'));
+      await tester.pump(); // lay out the scrolled list
+      await tester.tap(find.byTooltip('Bước tiếp'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Giai đoạn 2/4: F2L'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Thư viện công thức'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Nb-perm'),
+      800,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('editor: undo and redo edits', (tester) async {
@@ -424,4 +559,12 @@ void main() {
     final button = find.widgetWithText(FilledButton, 'Dùng trạng thái này');
     expect(tester.getRect(button).bottom, lessThanOrEqualTo(navigationBarTop));
   });
+}
+
+class _SilentSounds implements CubeSounds {
+  @override
+  void turn() {}
+
+  @override
+  void scramble() {}
 }

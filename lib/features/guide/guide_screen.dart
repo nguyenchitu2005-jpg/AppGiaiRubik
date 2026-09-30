@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/cube/cube_state.dart';
 import '../../core/solver/beginner/beginner_solver.dart';
+import '../../core/solver/cfop/cfop_solver.dart';
 import '../../core/solver/kociemba_solver.dart';
 import '../../core/solver/solve_step.dart';
 import '../../shared/widgets/speed_selector.dart';
@@ -13,22 +14,34 @@ import 'solution_player.dart';
 import 'solution_player_view.dart';
 
 enum SolveMode {
-  learn('Học từng tầng', Icons.school),
-  quick('Giải nhanh', Icons.bolt);
+  beginner('Newbie', Icons.school_outlined, SolveMethod.beginner),
+  cfop('Pro', Icons.emoji_events_outlined, SolveMethod.cfop),
+  quick('Giải nhanh', Icons.bolt, null);
 
-  const SolveMode(this.label, this.icon);
+  const SolveMode(this.label, this.icon, this.method);
 
   final String label;
   final IconData icon;
+
+  /// The human method taught, or null for the computer's short solution.
+  final SolveMethod? method;
+
+  static SolveMode of(SolveMethod method) =>
+      values.firstWhere((mode) => mode.method == method);
 }
 
-/// Step-by-step guide for solving [start], either with the beginner method
-/// (explained, ~140 moves) or Kociemba (~20 moves).
+extension SolveMethodIcon on SolveMethod {
+  IconData get icon => SolveMode.of(this).icon;
+}
+
+/// Step-by-step guide for solving [start]: layer by layer (Newbie, basic
+/// formulas, ~140 moves), CFOP (Pro, advanced formulas, ~60 moves) or
+/// Kociemba (~20 moves, no formulas).
 class GuideScreen extends ConsumerStatefulWidget {
   const GuideScreen({
     super.key,
     required this.start,
-    this.initialMode = SolveMode.learn,
+    this.initialMode = SolveMode.beginner,
   });
 
   final CubeState start;
@@ -95,8 +108,10 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
 
   Future<List<SolveStep>> _solve(SolveMode mode) async {
     switch (mode) {
-      case SolveMode.learn:
+      case SolveMode.beginner:
         return BeginnerSolver.solve(widget.start);
+      case SolveMode.cfop:
+        return CfopSolver.solve(widget.start);
       case SolveMode.quick:
         final moves = await KociembaSolver.solve(widget.start);
         return [
@@ -144,7 +159,15 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
                   ),
               ],
               selected: {_mode},
-              onSelectionChanged: (s) => _load(s.single),
+              showSelectedIcon: false,
+              onSelectionChanged: (s) {
+                // Picking Newbie or Pro here also changes the level.
+                final method = s.single.method;
+                if (method != null) {
+                  ref.read(solveLevelProvider.notifier).set(method);
+                }
+                _load(s.single);
+              },
             ),
           ),
         ),
@@ -162,9 +185,11 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
               (final SolutionPlayer player, _) => ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  _MethodBanner(mode: _mode),
+                  const SizedBox(height: 8),
                   SolutionPlayerView(
                     player: player,
-                    showStages: _mode == SolveMode.learn,
+                    stages: _mode.method?.stages,
                   ),
                   const SizedBox(height: 8),
                   const SpeedSelector(),
@@ -181,6 +206,72 @@ class _GuideScreenState extends ConsumerState<GuideScreen>
               ),
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Which method the solution follows, and what kind of formulas it uses.
+class _MethodBanner extends StatelessWidget {
+  const _MethodBanner({required this.mode});
+
+  final SolveMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final method = mode.method;
+    final (title, tag, summary) = method == null
+        ? (
+            'Thuật toán Kociemba (máy tính)',
+            'Lời giải ngắn nhất',
+            'Khoảng 20 nước do máy tính tìm, không theo công thức nào: chỉ '
+                'cần làm theo từng nước.',
+          )
+        : (
+            method.fullName,
+            '${method.level} · ${method.formulas}',
+            method.summary,
+          );
+    return Card(
+      margin: EdgeInsets.zero,
+      color: theme.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(mode.icon, color: theme.colorScheme.onSecondaryContainer),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              tag,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              summary,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSecondaryContainer,
+              ),
+            ),
+          ],
         ),
       ),
     );

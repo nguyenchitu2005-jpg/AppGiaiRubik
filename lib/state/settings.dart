@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/solver/solve_step.dart';
+
 enum AnimationSpeed {
   slow('Chậm', Duration(milliseconds: 650)),
   normal('Vừa', Duration(milliseconds: 350)),
@@ -47,4 +49,17 @@ class SoundEnabledController extends Notifier<bool> {
 
 final soundEnabledProvider = NotifierProvider<SoundEnabledController, bool>(
   SoundEnabledController.new,
+);
+
+/// The solver's level: which method "Học cách giải" teaches (layer by
+/// layer for a newbie, CFOP for a pro).
+class SolveLevelController extends Notifier<SolveMethod> {
+  @override
+  SolveMethod build() => SolveMethod.beginner;
+
+  void set(SolveMethod method) => state = method;
+}
+
+final solveLevelProvider = NotifierProvider<SolveLevelController, SolveMethod>(
+  SolveLevelController.new,
 );

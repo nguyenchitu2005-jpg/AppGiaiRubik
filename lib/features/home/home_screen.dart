@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/cube/cube_state.dart';
 import '../../core/cube/move.dart';
+import '../../core/solver/solve_step.dart';
 import '../../shared/widgets/cube_net_view.dart';
 import '../../state/cube_session.dart';
 import '../../state/settings.dart';
@@ -92,6 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final session = ref.watch(cubeSessionProvider);
     final controller = ref.read(cubeSessionProvider.notifier);
     final solved = session.cube.isSolved;
+    final level = ref.watch(solveLevelProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -231,6 +233,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               ),
                             ],
                             const SizedBox(height: 16),
+                            const _LevelPicker(),
+                            const SizedBox(height: 8),
                             Row(
                               children: [
                                 Expanded(
@@ -239,9 +243,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                         ? null
                                         : () => _openGuide(
                                             session.cube,
-                                            SolveMode.learn,
+                                            SolveMode.of(level),
                                           ),
-                                    icon: Icon(SolveMode.learn.icon),
+                                    icon: Icon(level.icon),
                                     label: const Text('Học cách giải'),
                                   ),
                                 ),
@@ -360,6 +364,47 @@ class _AnimatedNetState extends State<_AnimatedNet> {
   @override
   Widget build(BuildContext context) =>
       CubeNetView(state: _shown, showFaceLabels: widget.showFaceLabels);
+}
+
+/// Newbie (layer by layer, basic formulas) or Pro (CFOP, advanced
+/// formulas): what "Học cách giải" teaches.
+class _LevelPicker extends ConsumerWidget {
+  const _LevelPicker();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final level = ref.watch(solveLevelProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Trình độ', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 4),
+        SegmentedButton<SolveMethod>(
+          segments: [
+            for (final method in SolveMethod.values)
+              ButtonSegment(
+                value: method,
+                label: Text(method.level),
+                icon: Icon(method.icon),
+              ),
+          ],
+          selected: {level},
+          showSelectedIcon: false,
+          onSelectionChanged: (s) =>
+              ref.read(solveLevelProvider.notifier).set(s.single),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${level.fullName} · ${level.formulas}',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _MovePad extends StatelessWidget {

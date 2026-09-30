@@ -34,8 +34,8 @@ class CubeView extends ConsumerStatefulWidget {
   /// Next move, drawn as arrows while nothing is turning.
   final Move? hint;
 
-  /// Colors of a piece to outline.
-  final Set<Face>? focus;
+  /// Pieces to outline, each given by its colors.
+  final List<Set<Face>>? focus;
 
   /// If set, turning the cube to show another face re-holds it: after the
   /// drag the cube eases to the nearest upright pose, then this is called
@@ -230,7 +230,7 @@ class AnimatedCubeView extends ConsumerStatefulWidget {
 
   final CubeAnimationController controller;
   final Move? hint;
-  final Set<Face>? focus;
+  final List<Set<Face>>? focus;
 
   /// See [CubeView.onReorient].
   final ValueChanged<List<Move>>? onReorient;

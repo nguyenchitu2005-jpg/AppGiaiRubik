@@ -1,8 +1,8 @@
 import '../cube/face.dart';
 import '../cube/move.dart';
 
-/// The stages of the layer-by-layer beginner method, plus the initial
-/// "hold the cube" step.
+/// The stages of the two human methods (layer by layer for beginners, CFOP
+/// for speed), plus the initial "hold the cube" step.
 enum SolveStage {
   hold(
     'Cầm khối',
@@ -41,7 +41,28 @@ enum SolveStage {
     'Đưa 4 cạnh tầng trên về đúng vị trí bằng U-perm. Khối được giải!',
   ),
 
-  /// Not part of the beginner method: a short computer-found solution.
+  cross(
+    'Cross',
+    'Làm dấu cộng trắng ở mặt dưới trong một lần: tính trước đường đi của '
+        'cả 4 cạnh (người giải nhanh làm trong tối đa 8 nước).',
+  ),
+  f2l(
+    'F2L',
+    'First Two Layers: ghép góc trắng với cạnh cùng màu thành một cặp ở '
+        'tầng trên rồi đưa cả cặp vào khe. 4 cặp xong là xong 2 tầng dưới.',
+  ),
+  oll(
+    'OLL',
+    'Orientation of the Last Layer: một công thức (trong 57) làm cả mặt '
+        'trên thành màu vàng.',
+  ),
+  pll(
+    'PLL',
+    'Permutation of the Last Layer: một công thức (trong 21) đưa các mảnh '
+        'tầng trên về đúng chỗ. Khối được giải!',
+  ),
+
+  /// Not a human method: a short computer-found solution.
   quick(
     'Lời giải ngắn',
     'Lời giải khoảng 20 bước tìm bằng thuật toán Kociemba. Ngắn nhưng khó '
@@ -59,6 +80,9 @@ enum SolveStage {
     lastLayerEdges,
   ];
 
+  /// The four stages of CFOP, in order.
+  static const cfop = [cross, f2l, oll, pll];
+
   const SolveStage(this.title, this.goal);
 
   final String title;
@@ -68,6 +92,49 @@ enum SolveStage {
 
   /// 1-based stage number as shown to the user (0 for [hold]).
   int get number => index;
+}
+
+/// A way of solving the cube by hand, matched to the solver's level.
+enum SolveMethod {
+  beginner(
+    level: 'Newbie',
+    name: 'Phương pháp tầng',
+    fullName: 'Phương pháp tầng (Layer by Layer)',
+    formulas: 'Công thức cơ bản',
+    summary:
+        'Giải từng tầng từ dưới lên với 7 công thức dễ nhớ. Khoảng 100–150 '
+        'nước, hợp với người mới bắt đầu.',
+    stages: SolveStage.learning,
+  ),
+  cfop(
+    level: 'Pro',
+    name: 'CFOP',
+    fullName: 'CFOP (phương pháp Fridrich)',
+    formulas: 'Công thức nâng cao',
+    summary:
+        'Cross → F2L → OLL → PLL: phương pháp của hầu hết người giải nhanh. '
+        'Khoảng 55–65 nước với 41 + 57 + 21 công thức.',
+    stages: SolveStage.cfop,
+  );
+
+  const SolveMethod({
+    required this.level,
+    required this.name,
+    required this.fullName,
+    required this.formulas,
+    required this.summary,
+    required this.stages,
+  });
+
+  /// Who it is for: "Newbie" or "Pro".
+  final String level;
+  final String name;
+  final String fullName;
+
+  /// What its formulas are called in the library.
+  final String formulas;
+  final String summary;
+  final List<SolveStage> stages;
 }
 
 /// One instruction of a solution: a short move sequence with its purpose.
@@ -89,8 +156,9 @@ class SolveStep {
   /// Name of the algorithm used, if any (e.g. "Sune").
   final String? formula;
 
-  /// Colors of the piece this step works on, to highlight it.
-  final Set<Face>? focus;
+  /// The pieces this step works on (each given by its colors), to
+  /// highlight them: one piece, or an F2L pair.
+  final List<Set<Face>>? focus;
 
   @override
   String toString() => '[${stage.title}] ${Move.format(moves)} — $explanation';

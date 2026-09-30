@@ -1,13 +1,15 @@
 import 'face.dart';
 
-/// Which slice of cubies along [MoveLayer.face]'s axis a move turns.
-enum LayerDepth { outer, middle, all }
+/// Which slice of cubies along [MoveLayer.face]'s axis a move turns: the
+/// outer layer, the middle slice, both (a wide turn) or the whole cube.
+enum LayerDepth { outer, middle, wide, all }
 
-/// Everything that can be turned: the six faces, the three middle slices
-/// and the three whole-cube rotations.
+/// Everything that can be turned: the six faces, the three middle slices,
+/// the three whole-cube rotations and the six wide (two-layer) turns.
 ///
 /// Each layer turns clockwise as seen from [face] (M follows L, E follows D,
-/// S follows F, x follows R, y follows U, z follows F).
+/// S follows F, x follows R, y follows U, z follows F; `r` is R with the
+/// middle slice).
 enum MoveLayer {
   u('U', Face.u, LayerDepth.outer),
   r('R', Face.r, LayerDepth.outer),
@@ -20,7 +22,13 @@ enum MoveLayer {
   s('S', Face.f, LayerDepth.middle),
   x('x', Face.r, LayerDepth.all),
   y('y', Face.u, LayerDepth.all),
-  z('z', Face.f, LayerDepth.all);
+  z('z', Face.f, LayerDepth.all),
+  uw('u', Face.u, LayerDepth.wide),
+  rw('r', Face.r, LayerDepth.wide),
+  fw('f', Face.f, LayerDepth.wide),
+  dw('d', Face.d, LayerDepth.wide),
+  lw('l', Face.l, LayerDepth.wide),
+  bw('b', Face.b, LayerDepth.wide);
 
   const MoveLayer(this.symbol, this.face, this.depth);
 
@@ -36,6 +44,7 @@ enum MoveLayer {
     return switch (depth) {
       LayerDepth.outer => depthAlongAxis == 1,
       LayerDepth.middle => depthAlongAxis == 0,
+      LayerDepth.wide => depthAlongAxis >= 0,
       LayerDepth.all => true,
     };
   }
@@ -72,10 +81,12 @@ class Move {
 
   String get notation => '${layer.symbol}${const ['', '', '2', "'"][turns]}';
 
-  /// Parses one token such as `R`, `U'`, `F2`, `R2'` or `R’`.
+  /// Parses one token such as `R`, `U'`, `F2`, `R2'`, `R’`, `r` or `Rw'`.
   static Move parse(String token) {
-    final t = token.trim().replaceAll('’', "'");
+    var t = token.trim().replaceAll('’', "'");
     if (t.isEmpty) throw const FormatException('Ký hiệu rỗng');
+    // `Rw` is another way to write the wide turn `r`.
+    if (t.length > 1 && t[1] == 'w') t = t[0].toLowerCase() + t.substring(2);
     final layer = MoveLayer.fromSymbol(t[0]);
     if (layer == null) throw FormatException('Ký hiệu không hợp lệ: $token');
     final turns = switch (t.substring(1)) {

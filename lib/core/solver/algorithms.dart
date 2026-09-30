@@ -1,13 +1,14 @@
 import '../cube/move.dart';
 import 'solve_step.dart';
 
-/// A named move sequence used by the beginner method.
+/// A named move sequence used by one of the methods.
 class Algorithm {
   const Algorithm({
     required this.name,
     required this.notation,
     required this.stage,
     required this.usage,
+    this.group,
   });
 
   final String name;
@@ -16,6 +17,9 @@ class Algorithm {
 
   /// When and how to use it, in Vietnamese.
   final String usage;
+
+  /// The family of cases it belongs to (OLL/PLL), if any.
+  final String? group;
 
   List<Move> get moves => Move.parseSequence(notation);
 }

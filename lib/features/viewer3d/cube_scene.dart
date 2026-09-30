@@ -363,7 +363,11 @@ abstract final class CubeScene {
     final camera = Vector3(0, 0, cameraDistance);
     final layer = move.layer;
     final n = _vec(layer.face.normal);
-    final depth = layer.depth == LayerDepth.outer ? 1.0 : 0.0;
+    final depth = switch (layer.depth) {
+      LayerDepth.outer => 1.0,
+      LayerDepth.wide => 0.5, // between the two turning layers
+      _ => 0.0,
+    };
     final direction = move.isPrime ? -1.0 : 1.0;
     final doubleTurn = move.isDouble;
 

@@ -11,14 +11,15 @@ class SolutionPlayerView extends StatelessWidget {
   const SolutionPlayerView({
     super.key,
     required this.player,
-    this.showStages = true,
+    this.stages,
     this.cubeSize = 300,
   });
 
   final SolutionPlayer player;
 
-  /// Show the 7-stage progress bar (beginner method only).
-  final bool showStages;
+  /// The method's stages, for a progress bar (none for a single formula
+  /// or the computer's solution).
+  final List<SolveStage>? stages;
 
   final double cubeSize;
 
@@ -41,7 +42,8 @@ class SolutionPlayerView extends StatelessWidget {
                 ),
               ),
             ),
-            if (showStages && step != null) _StageProgress(stage: step.stage),
+            if (stages != null && step != null)
+              _StageProgress(stages: stages!, stage: step.stage),
             const SizedBox(height: 8),
             if (step == null)
               const _Message('Khối đã được giải sẵn, không cần xoay.')
@@ -60,14 +62,14 @@ class SolutionPlayerView extends StatelessWidget {
 }
 
 class _StageProgress extends StatelessWidget {
-  const _StageProgress({required this.stage});
+  const _StageProgress({required this.stages, required this.stage});
 
+  final List<SolveStage> stages;
   final SolveStage stage;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final stages = SolveStage.learning;
     final current = stages.indexOf(stage);
     final title = current < 0
         ? 'Chuẩn bị: ${stage.title}'

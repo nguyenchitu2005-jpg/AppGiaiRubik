@@ -39,7 +39,9 @@ _Cập nhật: 29/09/2026_
 |---|---|
 | Logo mới (khối 3D, nền xanh–tím) và huy hiệu chú chó | `9d8d90b`, `1e8b92d` |
 | Chạy đa nền tảng: Android, iOS, Windows, macOS | `e9d8c74` |
-| Sửa Học cách giải/Giải nhanh bị lỗi trên web; âm thanh khi xoay và khi xáo trộn, có nút bật/tắt | (commit này) |
+| Sửa Học cách giải/Giải nhanh bị lỗi trên web; âm thanh khi xoay và khi xáo trộn, có nút bật/tắt | `127be7c` |
+| Âm thanh không làm dừng nhạc nền; phát hành bản APK 1.0.0 trên GitHub Releases | `154fb09` |
+| Chọn trình độ **Newbie/Pro**. Pro giải bằng **CFOP**: Cross tối ưu, 41 F2L (sinh bằng máy, chỉ dùng R/U/F), 57 OLL, 21 PLL. Thư viện chia *Công thức cơ bản* / *Công thức nâng cao*, có hình nhận dạng. Ký hiệu xoay 2 tầng (r, f, u…) | (commit này) |
 | Ký hiệu mặt (U·Trên, F·Trước…) trên khối 3D, luôn đứng thẳng, có nút bật/tắt | `4dbec53` |
 | Nút hoàn tác/làm lại ở màn hình nhập màu. Khối tự về tư thế đứng thẳng sau khi xoay | `36a5956` |
 | Ký hiệu mặt trên sơ đồ 2D | `6568574` |

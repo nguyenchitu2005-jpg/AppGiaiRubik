@@ -28,8 +28,9 @@ class CubePainter extends CustomPainter {
   /// Next move to make: shown as arrows while no layer is turning.
   final Move? hint;
 
-  /// Colors of a piece to outline (e.g. the corner being solved).
-  final Set<Face>? focus;
+  /// Pieces to outline, each given by its colors (e.g. the corner being
+  /// solved, or a corner and its edge).
+  final List<Set<Face>>? focus;
 
   static const _accent = Color(0xFF7C3AED);
 
@@ -57,7 +58,7 @@ class CubePainter extends CustomPainter {
 
     final focused = focus == null
         ? const <int>{}
-        : _pieceFacelets(state, focus!);
+        : {for (final piece in focus!) ..._pieceFacelets(state, piece)};
     final outline = Paint()
       ..style = PaintingStyle.stroke
       ..strokeJoin = StrokeJoin.round;
@@ -266,5 +267,14 @@ class CubePainter extends CustomPainter {
       old.turn != turn ||
       old.showFaceLabels != showFaceLabels ||
       old.hint != hint ||
-      !setEquals(old.focus, focus);
+      !_sameFocus(old.focus, focus);
+
+  static bool _sameFocus(List<Set<Face>>? a, List<Set<Face>>? b) {
+    if (a == null || b == null) return a == b;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!setEquals(a[i], b[i])) return false;
+    }
+    return true;
+  }
 }
