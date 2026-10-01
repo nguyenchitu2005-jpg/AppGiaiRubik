@@ -156,6 +156,21 @@ class SolveTracker extends ChangeNotifier {
     return _orient(_frames.last.labels, _mirrored ?? preferMirrored);
   }
 
+  /// Whether [asRead] (9 colors as the camera reads them) is the front face
+  /// of a position the cube may be in now: a move or two back, a few ahead.
+  /// Helps tell the cube from look-alike areas of the picture.
+  bool looksExpected(List<Face> asRead) {
+    final first = (_done - 2).clamp(0, _plan.length);
+    final last = (_done + lookahead).clamp(0, _plan.length);
+    for (final mirror in _mirrored == null ? [false, true] : [_mirrored!]) {
+      final seen = _orient(asRead, mirror);
+      for (var k = first; k <= last; k++) {
+        if (_score(seen, _front(_states[k])) >= 8) return true;
+      }
+    }
+    return false;
+  }
+
   /// The latest news, taken once.
   TrackerNews? takeNews() {
     final news = _news;

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' show Offset, Rect;
 
 import 'color_math.dart';
+import 'face_locator.dart';
 
 /// An image whose pixels can be read as colors.
 abstract interface class PixelSource {
@@ -127,6 +128,39 @@ abstract final class GridSampler {
       }
     }
     return colors;
+  }
+
+  /// A small upright copy of the whole preview, [width] pixels wide and
+  /// [aspect] (width / height) as the preview, with the same [rotation]
+  /// and [mirrored] as [sample], so a square found in it is a [sample]
+  /// grid.
+  static RgbFrame downsample(
+    PixelSource image, {
+    required int width,
+    required double aspect,
+    required int rotation,
+    bool mirrored = false,
+  }) {
+    final height = (width / aspect).round();
+    final bytes = Uint8List(width * height * 3);
+    var i = 0;
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        final px = (x + 0.5) / width;
+        final sensor = toSensor(
+          Offset(mirrored ? 1 - px : px, (y + 0.5) / height),
+          rotation,
+        );
+        final c = image.pixel(
+          (sensor.dx * (image.width - 1)).round(),
+          (sensor.dy * (image.height - 1)).round(),
+        );
+        bytes[i++] = c.r.round();
+        bytes[i++] = c.g.round();
+        bytes[i++] = c.b.round();
+      }
+    }
+    return RgbFrame(width, height, bytes);
   }
 
   /// Maps a normalized point of the upright preview to the normalized

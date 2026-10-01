@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/cube/face.dart';
+import '../../core/vision/color_classifier.dart';
+import '../../core/vision/face_locator.dart';
 import '../../core/vision/scan_assembler.dart';
 import '../../shared/cube_palette.dart';
 import '../../shared/platform_support.dart';
@@ -48,6 +50,18 @@ class _ScanScreenState extends State<ScanScreen> {
 
   /// Faces captured so far, to notice each new one.
   int _capturedCount = 0;
+
+  /// Finds the face asked for anywhere in the picture (a red or orange
+  /// center may read as the other until both are scanned).
+  late final FaceLocator _locator = FaceLocator(
+    colorOf: LiveColorClassifier.pixelColor,
+    centerOk: (center) {
+      final asked = _scan.step?.face;
+      const redOrange = {Face.r, Face.l};
+      return center == asked ||
+          (redOrange.contains(center) && redOrange.contains(asked));
+    },
+  );
 
   @override
   void initState() {
@@ -199,6 +213,10 @@ class _ScanScreenState extends State<ScanScreen> {
                   live: _scan.live,
                   stable: _scan.isStable,
                   onSamples: _scan.addFrame,
+                  locator: _locator,
+                  onLocated: (found) {
+                    if (!found) _scan.lostSight();
+                  },
                   onReady: (photoMode) => setState(() {
                     _photoMode = photoMode;
                     _cameraReady = true;
@@ -219,9 +237,9 @@ class _ScanScreenState extends State<ScanScreen> {
                   ),
                 Text(
                   _scan.live == null
-                      ? 'Căn mặt khối cho vừa lưới và giữ yên.'
+                      ? 'Đưa mặt khối về phía camera (gần hay xa đều được) và giữ yên.'
                       : !_scan.isClear
-                      ? 'Đưa cả mặt vào lưới, đủ sáng, để thấy rõ màu từng ô.'
+                      ? 'Để cả mặt khối trong khung hình, đủ sáng, để thấy rõ màu từng ô.'
                       : _scan.autoCapture && _scan.centerMatches
                       ? 'Giữ yên, app sẽ tự chụp khi màu ổn định…'
                       : _scan.isStable

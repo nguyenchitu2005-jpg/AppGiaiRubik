@@ -13,6 +13,7 @@ import '../../core/solver/kociemba_solver.dart';
 import '../../core/timer/solve_times.dart';
 import '../../core/vision/color_classifier.dart';
 import '../../core/vision/color_math.dart';
+import '../../core/vision/face_locator.dart';
 import '../../core/vision/scan_assembler.dart';
 import '../../core/vision/solve_tracker.dart';
 import '../../shared/layout.dart';
@@ -74,6 +75,12 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
   late final Face Function(Rgb) _classify;
   late final bool Function(Rgb) _isClear;
 
+  /// Finds the front face anywhere in the picture.
+  late final FaceLocator _locator;
+
+  /// The camera's last picture showed the front face (null before any).
+  bool? _faceSeen;
+
   SolveTracker? _tracker;
   String? _error;
   List<Face>? _live;
@@ -92,6 +99,12 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
     final palette = _palette();
     _classify = palette?.classify ?? LiveColorClassifier.classify;
     _isClear = palette?.isClear ?? LiveColorClassifier.isClear;
+    _locator = FaceLocator(
+      colorOf: palette?.pixelColor ?? LiveColorClassifier.pixelColor,
+      centerOk: (center) => center == widget.start.center(Face.f),
+      // The colors the solution expects beat a look-alike patch.
+      bonus: (colors) => _tracker?.looksExpected(colors) ?? false ? 3 : 0,
+    );
     _solve();
   }
 
@@ -146,6 +159,12 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
   /// Colors read by the camera.
   @visibleForTesting
   void addSamples(List<Rgb> samples, Duration time) {
+    // Nothing to follow while the front face is not in the picture.
+    if (_faceSeen == false) {
+      _live = null;
+      setState(() {});
+      return;
+    }
     final labels = [for (final s in samples) _classify(s)];
     final clear = samples.every(_isClear);
     _live = labels;
@@ -291,6 +310,8 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
       live: tracker?.phase == TrackerPhase.solved ? null : _live,
       stable: tracker != null && tracker.phase != TrackerPhase.aligning,
       onSamples: addSamples,
+      locator: _locator,
+      onLocated: (found) => _faceSeen = found,
       maxHeight: MediaQuery.sizeOf(context).height * (_photos ? 0.5 : 0.4),
     );
     final panel = _panel(context, tracker);
@@ -500,9 +521,10 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
           'đang làm.',
           style: TextStyle(color: theme.colorScheme.error),
         )
-      else if (tracker.wrongFace)
+      else if (_faceSeen == false || tracker.wrongFace)
         Text(
-          'Hãy để mặt tâm $front hướng vào camera.',
+          'Đưa mặt tâm $front về phía camera (gần hay xa đều được, không '
+          'cần khớp ô vuông).',
           style: TextStyle(color: theme.colorScheme.error),
         )
       else if (unseen) ...[
@@ -520,7 +542,7 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
         ),
       ] else
         Text(
-          'Xoay xong giữ yên một chút, camera sẽ nhận ra và đọc nước tiếp.',
+          'Cứ xoay, camera tự nhận ra nước vừa xong và đọc nước tiếp.',
           style: theme.textTheme.bodySmall,
         ),
       const SizedBox(height: 12),
@@ -544,10 +566,11 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
             ),
           ),
           const SizedBox(width: 8),
+          // Only when the camera misses a move: it follows them itself.
           Expanded(
-            child: FilledButton.icon(
+            child: OutlinedButton.icon(
               onPressed: tracker.confirmByUser,
-              icon: const Icon(Icons.check),
+              icon: const Icon(Icons.skip_next),
               label: const Text('Đã xoay'),
             ),
           ),

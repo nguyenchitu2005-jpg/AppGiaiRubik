@@ -36,6 +36,21 @@ abstract final class LiveColorClassifier {
     return _hueBounds.every((b) => (hsv.h - b).abs() >= 4);
   }
 
+  /// A single pixel's color for finding the cube in the picture, or null
+  /// when it is not clearly a sticker color.
+  static Face? pixelColor(Rgb color) {
+    if (!isClear(color)) return null;
+    final face = classify(color);
+    return face == Face.u || color.toHsv().s >= _minPixelSaturation
+        ? face
+        : null;
+  }
+
+  /// Pale warm colors (skin, a wooden table) are not taken for stickers
+  /// when looking for the cube: a hand next to it must not look like part
+  /// of a face. Sticker colors, even a pale salmon orange, are stronger.
+  static const _minPixelSaturation = 0.42;
+
   /// How different two red-or-orange stickers look: hue (degrees, around
   /// the circle) and saturation (a salmon orange is paler than a red).
   static double redOrangeDistance(Rgb a, Rgb b) {
@@ -157,6 +172,22 @@ class StickerPalette {
     if (ranked.length < 2) return true;
     if (ranked.first.$1 == Face.u && hsv.v < 0.5) return false;
     return ranked[0].$2 <= 0.3 * ranked[1].$2;
+  }
+
+  /// A single pixel's color, for finding the cube in the picture: looser
+  /// than [isClear] (pixels are noisier than a sticker's median), null for
+  /// the dark, the grey and what lies between two colors.
+  Face? pixelColor(Rgb color) {
+    final hsv = color.toHsv();
+    if (hsv.v < 0.2) return null;
+    final ranked = _ranked(color);
+    final first = ranked.first.$1;
+    if (first == Face.u && hsv.v < 0.45) return null;
+    if (first != Face.u && hsv.s < LiveColorClassifier._minPixelSaturation) {
+      return null;
+    }
+    if (ranked.length > 1 && ranked[0].$2 > 0.45 * ranked[1].$2) return null;
+    return first;
   }
 
   /// Colors nearest first, with their squared distance.

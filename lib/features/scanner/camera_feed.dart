@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/cube/face.dart';
 import '../../core/vision/color_math.dart';
+import '../../core/vision/face_locator.dart';
 import '../../core/vision/yuv_image.dart';
 import '../../shared/cube_palette.dart';
 import '../../shared/platform_support.dart';
@@ -15,7 +16,12 @@ import 'camera_list.dart';
 
 /// The camera with a 3×3 grid drawn over its preview. Reports the 9 colors
 /// inside the grid: from live frames on phones (about ten a second), from a
-/// photo every 0.7 s in a browser and on Windows (no live frames there).
+/// photo every half second or so in a browser and on Windows (no live
+/// frames there).
+///
+/// With a [locator], the cube face is looked for anywhere in the picture
+/// (near or far) and the grid follows it; the fixed grid in the middle is
+/// only a fallback.
 class CameraFeed extends StatefulWidget {
   const CameraFeed({
     super.key,
@@ -27,6 +33,8 @@ class CameraFeed extends StatefulWidget {
     this.preferFront = false,
     this.maxHeight = double.infinity,
     this.onReady,
+    this.locator,
+    this.onLocated,
   });
 
   /// Times the samples.
@@ -52,6 +60,12 @@ class CameraFeed extends StatefulWidget {
   /// The camera opened; true when colors come from photos.
   final ValueChanged<bool>? onReady;
 
+  /// Finds the face anywhere in the picture.
+  final FaceLocator? locator;
+
+  /// After each picture: whether [locator] found the face.
+  final ValueChanged<bool>? onLocated;
+
   @override
   State<CameraFeed> createState() => CameraFeedState();
 }
@@ -69,8 +83,15 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
   /// Frames are analyzed at most this often.
   static const _analyzeEvery = Duration(milliseconds: 100);
 
-  /// Where frames cannot be streamed, a photo is taken this often.
-  static const _photoEvery = Duration(milliseconds: 700);
+  /// Where frames cannot be streamed, a photo is taken this often (a
+  /// browser takes them quickly; Windows saves each to a file).
+  static final _photoEvery = Duration(milliseconds: kIsWeb ? 450 : 700);
+
+  /// Width of the small picture the face is looked for in.
+  static const _searchWidth = 200;
+
+  /// Where [CameraFeed.locator] last found the face.
+  Rect? _found;
 
   CameraController? _camera;
   String? _error;
@@ -263,12 +284,14 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
     _analyzing = true;
     _lastAnalyzed = now;
     try {
-      final samples = GridSampler.sample(
+      final samples = _read(
         _toYuv(image),
-        grid: _gridRect(camera),
+        camera,
         rotation: camera.description.sensorOrientation,
+        // The sensor is landscape; upright, the preview is turned.
+        aspect: 1 / camera.value.aspectRatio,
       );
-      widget.onSamples(samples, now);
+      if (samples != null) widget.onSamples(samples, now);
     } finally {
       _analyzing = false;
     }
@@ -282,10 +305,13 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
     }
     final camera = _camera;
     if (camera == null) throw StateError('Camera chưa sẵn sàng');
-    return _readPhoto(camera);
+    return (await _readPhoto(camera, fallback: true))!;
   }
 
-  Future<List<Rgb>> _readPhoto(CameraController camera) async {
+  Future<List<Rgb>?> _readPhoto(
+    CameraController camera, {
+    bool fallback = false,
+  }) async {
     final photo = await camera.takePicture();
     final bytes = await photo.readAsBytes();
     // Windows saves each photo to a file: do not let them pile up.
@@ -293,19 +319,58 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
     final codec = await ui.instantiateImageCodec(bytes);
     final image = (await codec.getNextFrame()).image;
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    final samples = GridSampler.sample(
+    final samples = _read(
       RgbaImage(
         width: image.width,
         height: image.height,
         bytes: data!.buffer.asUint8List(),
       ),
-      grid: _gridRect(camera),
+      camera,
       rotation: 0,
+      aspect: image.width / image.height,
       // Windows shows the webcam mirrored but takes photos unmirrored.
       mirrored: isWindows,
+      fallback: fallback,
     );
     image.dispose();
     return samples;
+  }
+
+  /// The 9 colors of the face found in [image]; without a
+  /// [CameraFeed.locator], those in the fixed grid. When the locator finds
+  /// no face, null: the fixed grid would read whatever is behind it (a
+  /// white wall is not the white face), unless the user asked for a photo
+  /// ([fallback]).
+  List<Rgb>? _read(
+    PixelSource image,
+    CameraController camera, {
+    required int rotation,
+    required double aspect,
+    bool mirrored = false,
+    bool fallback = false,
+  }) {
+    final locator = widget.locator;
+    Rect? found;
+    if (locator != null) {
+      found = locator.locate(
+        GridSampler.downsample(
+          image,
+          width: _searchWidth,
+          aspect: aspect,
+          rotation: rotation,
+          mirrored: mirrored,
+        ),
+      );
+      widget.onLocated?.call(found != null);
+    }
+    _found = found;
+    if (locator != null && found == null && !fallback) return null;
+    return GridSampler.sample(
+      image,
+      grid: found ?? _gridRect(camera),
+      rotation: rotation,
+      mirrored: mirrored,
+    );
   }
 
   /// A photo read like a streamed frame.
@@ -315,7 +380,7 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
     _polling = true;
     try {
       final samples = await _readPhoto(camera);
-      if (mounted && _camera == camera && widget.active) {
+      if (samples != null && mounted && _camera == camera && widget.active) {
         widget.onSamples(samples, widget.clock.elapsed);
       }
     } catch (_) {
@@ -389,7 +454,12 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
                   CameraPreview(camera),
                 CustomPaint(
                   painter: _GridOverlay(
-                    grid: _gridRect(camera),
+                    grid: (widget.active ? _found : null) ?? _gridRect(camera),
+                    // Looking for the face (or done): the fixed grid is just
+                    // a hint.
+                    faint:
+                        widget.locator != null &&
+                        (_found == null || !widget.active),
                     live: widget.live,
                     stable: widget.stable,
                   ),
@@ -415,9 +485,15 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
 }
 
 class _GridOverlay extends CustomPainter {
-  _GridOverlay({required this.grid, required this.live, required this.stable});
+  _GridOverlay({
+    required this.grid,
+    required this.live,
+    required this.stable,
+    this.faint = false,
+  });
 
   final Rect grid;
+  final bool faint;
   final List<Face>? live;
   final bool stable;
 
@@ -433,7 +509,11 @@ class _GridOverlay extends CustomPainter {
     final border = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = stable ? Colors.greenAccent : Colors.white;
+      ..color = faint
+          ? Colors.white38
+          : stable
+          ? Colors.greenAccent
+          : Colors.white;
     for (var row = 0; row < 3; row++) {
       for (var col = 0; col < 3; col++) {
         final cellRect = Rect.fromLTWH(
@@ -446,7 +526,7 @@ class _GridOverlay extends CustomPainter {
           RRect.fromRectAndRadius(cellRect, const Radius.circular(10)),
           border,
         );
-        final guess = live?[row * 3 + col];
+        final guess = faint ? null : live?[row * 3 + col];
         if (guess != null) {
           final dot = Rect.fromCenter(
             center: cellRect.center,
@@ -472,7 +552,10 @@ class _GridOverlay extends CustomPainter {
 
   @override
   bool shouldRepaint(_GridOverlay old) =>
-      old.grid != grid || old.live != live || old.stable != stable;
+      old.grid != grid ||
+      old.live != live ||
+      old.stable != stable ||
+      old.faint != faint;
 }
 
 class _CameraError extends StatelessWidget {

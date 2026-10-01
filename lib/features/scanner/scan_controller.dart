@@ -20,29 +20,29 @@ class ScanController extends ChangeNotifier {
   static const steps = [
     ScanStep(
       Face.f,
-      'Cầm khối với tâm trắng ở trên. Đưa mặt có tâm xanh lá vào khung.',
+      'Cầm khối với tâm trắng ở trên. Đưa mặt có tâm xanh lá về phía camera.',
     ),
     ScanStep(
       Face.r,
       'Xoay cả khối sang trái một góc vuông (trắng vẫn ở trên): mặt tâm đỏ '
-      'vào khung.',
+      'về phía camera.',
     ),
     ScanStep(
       Face.b,
-      'Xoay tiếp sang trái một góc vuông: mặt tâm xanh dương vào khung.',
+      'Xoay tiếp sang trái một góc vuông: mặt tâm xanh dương về phía camera.',
     ),
     ScanStep(
       Face.l,
-      'Xoay tiếp sang trái một góc vuông: mặt tâm cam vào khung.',
+      'Xoay tiếp sang trái một góc vuông: mặt tâm cam về phía camera.',
     ),
     ScanStep(
       Face.u,
       'Xoay tiếp sang trái để mặt xanh lá về phía trước, rồi lật mặt trên về '
-      'phía bạn: mặt tâm trắng vào khung, mặt xanh dương ở trên.',
+      'phía bạn: mặt tâm trắng về phía camera, mặt xanh dương ở trên.',
     ),
     ScanStep(
       Face.d,
-      'Lật khối nửa vòng theo chiều dọc: mặt tâm vàng vào khung, mặt xanh lá '
+      'Lật khối nửa vòng theo chiều dọc: mặt tâm vàng về phía camera, mặt xanh lá '
       'ở trên.',
     ),
   ];
@@ -168,6 +168,12 @@ class ScanController extends ChangeNotifier {
     if (isComplete) return;
     _captured[step!.face] = samples;
     _stepIndex++;
+    _reset();
+  }
+
+  /// The face went out of sight: what was seen no longer holds still.
+  void lostSight() {
+    if (_frames.isEmpty) return;
     _reset();
   }
 
