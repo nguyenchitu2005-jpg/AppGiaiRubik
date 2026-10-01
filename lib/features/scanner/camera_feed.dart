@@ -11,6 +11,7 @@ import '../../core/vision/color_math.dart';
 import '../../core/vision/yuv_image.dart';
 import '../../shared/cube_palette.dart';
 import '../../shared/platform_support.dart';
+import 'camera_list.dart';
 
 /// The camera with a 3×3 grid drawn over its preview. Reports the 9 colors
 /// inside the grid: from live frames on phones (about ten a second), from a
@@ -62,6 +63,9 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
   /// Give up opening the camera after this long (camera services can hang).
   static const _openTimeout = Duration(seconds: 5);
 
+  /// Listing the cameras may open each of them (in a browser).
+  static const _listTimeout = Duration(seconds: 12);
+
   /// Frames are analyzed at most this often.
   static const _analyzeEvery = Duration(milliseconds: 100);
 
@@ -109,61 +113,142 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _openCamera() async {
+  /// The camera the user last switched to, kept for the next page.
+  static String? _chosenName;
+
+  /// Cameras that can be tried, best first.
+  List<CameraDescription> _cameras = [];
+  int _cameraIndex = 0;
+  bool _opening = false;
+
+  /// Names of virtual cameras (programs that pretend to be a webcam): they
+  /// show nothing, or fail, while their program is closed.
+  static final _virtual = RegExp(
+    r'virtual|obs|droidcam|manycam|xsplit|snap camera|broadcast|iriun|epoccam',
+    caseSensitive: false,
+  );
+
+  /// Best first: the one chosen before, real cameras before virtual ones,
+  /// the side asked for ([CameraFeed.preferFront]) before the other.
+  List<CameraDescription> _ordered(List<CameraDescription> cameras) {
+    final wanted = widget.preferFront
+        ? CameraLensDirection.front
+        : CameraLensDirection.back;
+    int rank(CameraDescription c) =>
+        (c.name == _chosenName ? 0 : 4) +
+        (_virtual.hasMatch(c.name) ? 2 : 0) +
+        (c.lensDirection == wanted ? 0 : 1);
+    final indexed = [for (var i = 0; i < cameras.length; i++) (i, cameras[i])];
+    indexed.sort((a, b) {
+      final byRank = rank(a.$2).compareTo(rank(b.$2));
+      return byRank != 0 ? byRank : a.$1.compareTo(b.$1);
+    });
+    return [for (final (_, c) in indexed) c];
+  }
+
+  /// Opens the best camera that starts (from [first] in the list, going
+  /// round): a camera can fail to start (in use by another program, a
+  /// virtual camera whose program is closed), and another may still work.
+  Future<void> _openCamera({int? first}) async {
+    if (_opening) return;
+    _opening = true;
     try {
-      final cameras = await availableCameras().timeout(_openTimeout);
-      final wanted = widget.preferFront
-          ? CameraLensDirection.front
-          : CameraLensDirection.back;
-      final chosen = cameras.firstWhere(
-        (c) => c.lensDirection == wanted,
-        orElse: () => cameras.first,
-      );
-      final camera = CameraController(
-        chosen,
-        ResolutionPreset.medium,
-        enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.yuv420,
-      );
-      await camera.initialize().timeout(_openTimeout);
-      if (!mounted) {
-        await camera.dispose();
+      if (_cameras.isEmpty || first == null) {
+        _cameras = _ordered(await listCameras().timeout(_listTimeout));
+      }
+      if (_cameras.isEmpty) {
+        throw CameraException('notFound', 'Không có camera');
+      }
+      CameraException? failure;
+      for (var step = 0; step < _cameras.length; step++) {
+        final index = ((first ?? 0) + step) % _cameras.length;
+        final camera = CameraController(
+          _cameras[index],
+          ResolutionPreset.medium,
+          enableAudio: false,
+          imageFormatGroup: ImageFormatGroup.yuv420,
+        );
+        try {
+          await camera.initialize().timeout(_openTimeout);
+        } on CameraException catch (e) {
+          await camera.dispose();
+          if (_denied(e.code)) rethrow;
+          failure = e;
+          continue;
+        } on TimeoutException {
+          camera.dispose().ignore();
+          failure = CameraException('timeout', 'Camera không phản hồi');
+          continue;
+        }
+        if (!mounted) {
+          await camera.dispose();
+          return;
+        }
+        await _use(camera, index);
         return;
       }
-      final photoMode = !camera.supportsImageStreaming();
-      if (!photoMode) await camera.startImageStream(_onImage);
-      setState(() {
-        _camera = camera;
-        _photoMode = photoMode;
-        _error = null;
-      });
-      if (photoMode) {
-        _poll?.cancel();
-        _poll = Timer.periodic(_photoEvery, (_) => _pollPhoto());
-      }
-      widget.onReady?.call(photoMode);
+      throw failure!;
     } on CameraException catch (e) {
       if (!mounted) return;
-      final denied =
-          e.code.contains('Access') ||
-          e.code.contains('ermission') ||
-          e.code.contains('NotAllowed');
       setState(
-        () => _error = !denied
-            ? 'Không mở được camera (${e.code}).'
-            : kIsWeb
-            ? 'Trình duyệt chưa được cấp quyền camera. Hãy bấm biểu tượng '
-                  'camera trên thanh địa chỉ, chọn Cho phép, rồi thử lại.'
-            : isWindows
-            ? 'Windows đang chặn camera. Hãy bật trong Cài đặt > Quyền riêng '
-                  'tư & bảo mật > Camera, rồi thử lại.'
-            : 'Ứng dụng chưa được cấp quyền camera. Hãy cho phép trong Cài '
-                  'đặt > Ứng dụng > Rubik Solver > Quyền.',
+        () => _error = _denied(e.code)
+            ? kIsWeb
+                  ? 'Trình duyệt chưa được cấp quyền camera. Hãy bấm biểu '
+                        'tượng camera trên thanh địa chỉ, chọn Cho phép, rồi '
+                        'thử lại.'
+                  : isWindows
+                  ? 'Windows đang chặn camera. Hãy bật trong Cài đặt > Quyền '
+                        'riêng tư & bảo mật > Camera, rồi thử lại.'
+                  : 'Ứng dụng chưa được cấp quyền camera. Hãy cho phép trong '
+                        'Cài đặt > Ứng dụng > Rubik Solver > Quyền.'
+            : e.code == 'notFound'
+            ? 'Không tìm thấy camera trên thiết bị này.'
+            : 'Không mở được camera (${e.code}). Có thể camera đang được '
+                  'ứng dụng khác dùng (Zalo, Zoom, Camera, OBS…): hãy đóng '
+                  'ứng dụng đó rồi bấm Thử lại.',
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Không tìm thấy camera trên thiết bị này.');
+    } finally {
+      _opening = false;
     }
+  }
+
+  static bool _denied(String code) =>
+      code.contains('Access') ||
+      code.contains('ermission') ||
+      code.contains('NotAllowed');
+
+  Future<void> _use(CameraController camera, int index) async {
+    final photoMode = !camera.supportsImageStreaming();
+    if (!photoMode) await camera.startImageStream(_onImage);
+    setState(() {
+      _camera = camera;
+      _cameraIndex = index;
+      _photoMode = photoMode;
+      _error = null;
+    });
+    if (photoMode) {
+      _poll?.cancel();
+      _poll = Timer.periodic(_photoEvery, (_) => _pollPhoto());
+    }
+    widget.onReady?.call(photoMode);
+  }
+
+  /// Switches to the next camera (front and back, or another webcam).
+  Future<void> _switchCamera() async {
+    final current = _camera;
+    if (current == null || _cameras.length < 2 || _opening) return;
+    _poll?.cancel();
+    setState(() => _camera = null);
+    while (_polling || _analyzing) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    await current.dispose();
+    final next = (_cameraIndex + 1) % _cameras.length;
+    _chosenName = _cameras[next].name;
+    await _openCamera(first: next);
   }
 
   void _onImage(CameraImage image) {
@@ -309,6 +394,17 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
                     stable: widget.stable,
                   ),
                 ),
+                if (_cameras.length > 1)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton.filledTonal(
+                      tooltip:
+                          'Đổi camera (đang dùng: ${_cameras[_cameraIndex].name})',
+                      onPressed: _switchCamera,
+                      icon: const Icon(Icons.cameraswitch_outlined),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -73,7 +73,7 @@ void main() {
   Future<void> leave(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     // Let the camera give up opening (there is none in tests).
-    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 13));
   }
 
   String currentMove(WidgetTester tester) =>
