@@ -6,9 +6,13 @@ import 'hungarian.dart';
 /// Quick per-sticker guess from fixed hue ranges, for the live preview while
 /// scanning. The final answer comes from [CubeColorAssigner].
 abstract final class LiveColorClassifier {
-  /// Below this saturation a sticker is white: a white under warm (yellow)
-  /// light turns cream (about 0.3), a yellow sticker stays far above.
-  static const _whiteSaturation = 0.35;
+  /// Below this saturation a sticker is white whatever its hue.
+  static const _greySaturation = 0.18;
+
+  /// Up to this saturation a color is pale: a white tinted by the room's
+  /// light, or a sticker washed out by a bright one. Its hue tells which
+  /// (see [_paleFace]).
+  static const _paleSaturation = 0.4;
 
   /// A white needs this brightness; lower, it is a grey or a shadow. Kept
   /// low for dim rooms: what is around the cube (a grey wall) is told
@@ -17,7 +21,10 @@ abstract final class LiveColorClassifier {
 
   static Face classify(Rgb color) {
     final hsv = color.toHsv();
-    if (hsv.s < _whiteSaturation && hsv.v > _whiteValue) return Face.u;
+    if (hsv.v > _whiteValue) {
+      if (hsv.s < _greySaturation) return Face.u;
+      if (hsv.s < _paleSaturation) return _paleFace(hsv);
+    }
     final h = hsv.h;
     if (h < 12 || h >= 330) return Face.r; // đỏ
     if (h < 38) return Face.l; // cam
@@ -27,20 +34,42 @@ abstract final class LiveColorClassifier {
     return Face.r;
   }
 
+  /// A pale color: a washed-out red or salmon orange is pink (hue below
+  /// 25°, above 330°); any other pale color is a white tinted by the light
+  /// or a washed-out yellow. Those two cannot be told apart one sticker at
+  /// a time (a white under a warm lamp and a washed-out yellow have the
+  /// same hue): the paler is guessed white, and the scan settles them by
+  /// the cube's own white and yellow centers ([ScanController]) and all 54
+  /// stickers together ([CubeColorAssigner]).
+  static Face _paleFace(Hsv hsv) {
+    final h = hsv.h;
+    if (h >= 330 || h < 12) return Face.r;
+    if (h < 25) return Face.l;
+    return hsv.s < 0.3 ? Face.u : Face.d;
+  }
+
   /// Hues where one sticker color turns into the next (see [classify]).
   /// Not the red/orange one (12°): cubes differ there, a salmon orange can
   /// have a red's hue. The scan tells them apart by the cube's own red and
   /// orange (see ScanController), the final colors by [CubeColorAssigner].
   static const _hueBounds = [38.0, 75.0, 165.0, 265.0, 330.0];
 
+  /// Where a pale color turns from pink to white-or-yellow ([_paleFace]).
+  /// White or yellow is no clearness matter: it is settled later.
+  static const _paleBounds = [25.0, 330.0];
+
   /// Whether [color] reads clearly as a sticker: white, or a bright enough,
   /// saturated enough color not right on the edge between two colors. A
-  /// dark gap, a shadow, a grey background or a yellow-or-orange guess is
-  /// not.
+  /// dark gap, a shadow, a grey background, a pale color between pink and
+  /// white, or a yellow-or-orange guess is not.
   static bool isClear(Rgb color) {
     final hsv = color.toHsv();
     // White must be bright enough: a dark grey or a shadow is not clear.
-    if (hsv.s < _whiteSaturation) return hsv.v > _whiteValue + 0.04;
+    if (hsv.s < _greySaturation) return hsv.v > _whiteValue + 0.04;
+    if (hsv.s < _paleSaturation && hsv.v > _whiteValue) {
+      return hsv.v > _whiteValue + 0.04 &&
+          _paleBounds.every((b) => (hsv.h - b).abs() >= 4);
+    }
     if (hsv.v < 0.25) return false;
     return _hueBounds.every((b) => (hsv.h - b).abs() >= 4);
   }
@@ -53,11 +82,13 @@ abstract final class LiveColorClassifier {
     return face == Face.u || !_pale(color.toHsv()) ? face : null;
   }
 
-  /// Pale colors (skin, a wooden table) are not taken for stickers when
-  /// looking for the cube: a hand next to it must not look like part of a
-  /// face. Sticker colors, even a pale salmon orange, are stronger, except
-  /// where a bright light washes them out: then they are very bright.
-  static bool _pale(Hsv hsv) => hsv.s < 0.42 && hsv.v < 0.9;
+  /// Pale pinkish colors (skin) are not taken for stickers when looking for
+  /// the cube: a hand next to it must not look like part of a face.
+  /// Sticker colors, even a pale salmon orange, are stronger, except where
+  /// a bright light washes them out: then they are very bright. (A pale
+  /// white or yellow, as in a dim warm room, still counts.)
+  static bool _pale(Hsv hsv) =>
+      hsv.s < 0.42 && hsv.v < 0.9 && (hsv.h < 25 || hsv.h >= 330);
 
   /// How different two red-or-orange stickers look: hue (degrees, around
   /// the circle) and saturation (a salmon orange is paler than a red).

@@ -57,8 +57,8 @@ class ScanController extends ChangeNotifier {
   /// A clearly read face showing the expected center is captured by itself
   /// once held still this long, over at least [autoCaptureFrames] frames
   /// (taking a face too soon, while it still moves, mixes up colors).
-  static const autoCaptureAfter = Duration(milliseconds: 1400);
-  static const autoCaptureFrames = 3;
+  static const autoCaptureAfter = Duration(milliseconds: 2000);
+  static const autoCaptureFrames = 4;
 
   /// Where the face finder saw the face in the next frame (null: no finder,
   /// a fixed grid).

@@ -148,19 +148,19 @@ void main() {
     test('a clear face with the right center held still is captured', () {
       final scan = ScanController();
       final green = _face(cube, Face.f);
-      var t = hold(scan, green, Duration.zero, 10);
+      var t = hold(scan, green, Duration.zero, 14);
       expect(scan.isClear, isTrue);
-      expect(scan.stepIndex, 0, reason: 'held 0.9 s: not yet');
+      expect(scan.stepIndex, 0, reason: 'held 1.3 s: not yet');
       expect(scan.autoProgress(t), inInclusiveRange(0.5, 0.8));
-      t = hold(scan, green, t, 6);
-      expect(scan.stepIndex, 1, reason: 'held about 1.5 s: captured');
+      t = hold(scan, green, t, 8);
+      expect(scan.stepIndex, 1, reason: 'held about 2 s: captured');
       expect(scan.capturedPreview.keys, [Face.f]);
 
       // Still the green face: the next one (red center) is not captured.
       t = hold(scan, green, t, 20);
       expect(scan.stepIndex, 1);
       // Turned to the red face: captured in turn.
-      hold(scan, _face(cube, Face.r), t, 16);
+      hold(scan, _face(cube, Face.r), t, 22);
       expect(scan.stepIndex, 2);
     });
 
@@ -179,7 +179,7 @@ void main() {
         ], t);
       }
       expect(scan.stepIndex, 0, reason: 'never still: not captured');
-      hold(scan, green, t, 16);
+      hold(scan, green, t, 22);
       expect(scan.stepIndex, 1, reason: 'held still: captured');
     });
 
@@ -193,7 +193,7 @@ void main() {
         scan.addFrame(green, t);
       }
       expect(scan.stepIndex, 0, reason: 'moving: not captured');
-      for (var i = 0; i < 16; i++) {
+      for (var i = 0; i < 22; i++) {
         t += frame;
         scan.nextGrid = const Rect.fromLTWH(0.5, 0.2, 0.3, 0.4);
         scan.addFrame(green, t);
@@ -274,7 +274,7 @@ void main() {
       var t = Duration.zero;
       for (final step in ScanController.steps.take(4)) {
         final samples = look(step.face);
-        for (var i = 0; i < 20 && scan.step?.face == step.face; i++) {
+        for (var i = 0; i < 30 && scan.step?.face == step.face; i++) {
           t += frame;
           scan.addFrame(samples, t);
           if (scan.step?.face == step.face) {
@@ -299,7 +299,7 @@ void main() {
       // The last two faces, then the whole cube comes out right.
       for (final step in ScanController.steps.skip(4)) {
         final samples = look(step.face);
-        for (var i = 0; i < 20 && scan.step?.face == step.face; i++) {
+        for (var i = 0; i < 30 && scan.step?.face == step.face; i++) {
           t += frame;
           scan.addFrame(samples, t);
         }
@@ -330,7 +330,7 @@ void main() {
             step.face == Face.d ? Face.u : step.face,
             reason: 'the washed yellow center reads white by itself',
           );
-          for (var i = 0; i < 20 && scan.step?.face == step.face; i++) {
+          for (var i = 0; i < 30 && scan.step?.face == step.face; i++) {
             t += frame;
             scan.addFrame(samples, t);
           }

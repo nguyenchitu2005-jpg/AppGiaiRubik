@@ -145,8 +145,10 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
         solution: solution,
         preferMirrored: widget.scan?.mirrored ?? false,
         cameraTurns: widget.scan?.cameraTurns ?? 0,
-        minFrames: _photos ? 1 : 2,
-        stableFor: _photos ? Duration.zero : const Duration(milliseconds: 250),
+        // A move is judged on a view seen twice (photos) or held 0.4 s
+        // (live frames): one glimpse can be a blur or a misread.
+        minFrames: _photos ? 2 : 3,
+        stableFor: _photos ? Duration.zero : const Duration(milliseconds: 400),
       )..addListener(_onTracker);
       setState(() => _tracker = tracker);
     } on UnsolvableCubeException catch (e) {
