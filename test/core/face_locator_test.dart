@@ -188,6 +188,45 @@ void main() {
     }
   });
 
+  test('a one-color face of a stickerless cube (no gaps) is found', () {
+    // A solved red face, its pieces only parted by faint darker lines,
+    // held in a hand (skin) in front of a face and a wall.
+    const w = 640, h = 480;
+    final bytes = Uint8List(w * h * 4);
+    void fill(int x0, int y0, int x1, int y1, Rgb c) {
+      for (var y = y0; y < y1; y++) {
+        for (var x = x0; x < x1; x++) {
+          final i = (y * w + x) * 4;
+          final n = ((x * 7 + y * 13) % 9) - 4;
+          bytes[i] = (c.r + n).clamp(0, 255).round();
+          bytes[i + 1] = (c.g + n).clamp(0, 255).round();
+          bytes[i + 2] = (c.b + n).clamp(0, 255).round();
+          bytes[i + 3] = 255;
+        }
+      }
+    }
+
+    fill(0, 0, w, h, const Rgb(190, 192, 188)); // wall
+    fill(60, 120, 260, 420, const Rgb(200, 150, 125)); // a face
+    fill(240, 120, 480, 360, const Rgb(205, 40, 52)); // the red face
+    for (final t in [80, 160]) {
+      fill(240 + t - 2, 120, 240 + t + 2, 360, const Rgb(160, 30, 42));
+      fill(240, 120 + t - 2, 480, 120 + t + 2, const Rgb(160, 30, 42));
+    }
+    fill(480, 200, 560, 380, const Rgb(210, 160, 135)); // fingers
+    final photo = RgbaImage(width: w, height: h, bytes: bytes);
+    final red = FaceLocator(
+      colorOf: LiveColorClassifier.pixelColor,
+      centerOk: (c) => c == Face.r || c == Face.l,
+    );
+    final grid = red.locate(
+      GridSampler.downsample(photo, width: 200, aspect: w / h, rotation: 0),
+    );
+    expect(grid, isNotNull);
+    expect(grid!.left * w, closeTo(240, 20));
+    expect(grid.width * w, closeTo(240, 30));
+  });
+
   test('no face, or not the face looked for: nothing found', () {
     // Only the room.
     expect(read(_photo(front, left: -999, top: -999, side: 90)), isNull);

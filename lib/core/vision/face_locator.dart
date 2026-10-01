@@ -232,8 +232,34 @@ class FaceLocator {
       }
       final inside = seams / 12;
       // One color all over (a solved face, or a plain patch of the room):
-      // only with the gaps between stickers showing.
-      if (colors.every((c) => c == center) && inside < 0.3) return null;
+      // only with the gaps between stickers showing, or, for a stickerless
+      // cube (no gaps), as a square ending sharply on all sides; a wall or
+      // a shirt goes on past the grid somewhere.
+      if (colors.every((c) => c == center)) {
+        if (inside < 0.3 && edge < 0.85) return null;
+        // Not one sticker of a bigger face: around a sticker lie other
+        // stickers, each one clear color; around a face, the room.
+        for (var i = 0; i < 9; i++) {
+          final bigLeft = left - (i % 3) * side;
+          final bigTop = top - (i ~/ 3) * side;
+          if (bigLeft < 0 ||
+              bigTop < 0 ||
+              bigLeft + 3 * side > w ||
+              bigTop + 3 * side > h) {
+            continue;
+          }
+          var stickers = true;
+          for (var j = 0; j < 9 && stickers; j++) {
+            final (_, p) = cell(
+              bigLeft + side * (j % 3 + 0.5),
+              bigTop + side * (j ~/ 3 + 0.5),
+              side * 0.3,
+            );
+            stickers = p >= minPurity;
+          }
+          if (stickers) return null;
+        }
+      }
       score += 6 * edge + 2 * inside;
       final extra = bonus;
       if (extra != null) {
