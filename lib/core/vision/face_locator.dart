@@ -132,7 +132,14 @@ class FaceLocator {
     // A grid's score (null when it is not a face): how pure its cells
     // are, how much it stands out from around it, how well its lines lie
     // on seams; and its center color.
-    (double, int, bool)? evaluate(double left, double top, double side) {
+    // Coarse grids may sit a little off the stickers, so their edge looks
+    // weaker: they are judged more leniently, then refined ([fine]).
+    (double, int, bool)? evaluate(
+      double left,
+      double top,
+      double side, {
+      bool fine = true,
+    }) {
       if (left < 0 || top < 0 || left + side > w || top + side > h) {
         return null;
       }
@@ -159,6 +166,9 @@ class FaceLocator {
       // of the edge stickers' color (a grid slid onto a wall the color of
       // its edge cells would go on past its edge).
       var bounded = 0.0, edges = 0;
+      // Per side (left, right, top, bottom): a face ends on every side, a
+      // stripe of the room (a curtain's edge by a wall) goes on at two.
+      final sides = List<double>.filled(4, 0);
       for (var i = 0; i < 9; i++) {
         final row = i ~/ 3, col = i % 3;
         final x = left + size * col, y = top + size * row;
@@ -184,15 +194,30 @@ class FaceLocator {
                 );
           final area = (x1 - x0) * (y1 - y0);
           edges++;
-          // Off the picture: no sign of an edge (the face should be wholly
-          // in view).
-          bounded += area <= 0
-              ? 0
+          // Off the picture (even half off): no sign of an edge (the face
+          // should be wholly in view).
+          final ends = area < band * size * 0.5
+              ? 0.0
               : 1 - count(colors[i], x0, y0, x1, y1) / area;
+          bounded += ends;
+          sides[dx < 0
+                  ? 0
+                  : dx > 0
+                  ? 1
+                  : dy < 0
+                  ? 2
+                  : 3] +=
+              ends / 3;
         }
       }
       final edge = bounded / edges;
-      if (edge < 0.5) return null;
+      // A sticker is evenly one color; cloth with folds or a busy wall
+      // less so.
+      if (fine && score < 9 * 0.85) return null;
+      if (edge < (fine ? 0.5 : 0.4) ||
+          sides.any((side) => side < (fine ? 0.3 : 0.15))) {
+        return null;
+      }
       // The 12 seams between neighbouring cells, each over the middle of
       // its edge.
       var seams = 0.0;
@@ -275,7 +300,7 @@ class FaceLocator {
       final step = side / 9 < 1 ? 1.0 : side / 9;
       for (var top = 0.0; top + side <= h; top += step) {
         for (var left = 0.0; left + side <= w; left += step) {
-          final result = evaluate(left, top, side);
+          final result = evaluate(left, top, side, fine: false);
           if (result != null) {
             candidates.add((result.$1, left, top, side, result.$3));
           }

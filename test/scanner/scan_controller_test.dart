@@ -193,7 +193,18 @@ void main() {
     test('clear colors: white and bright colors yes; grey, dark, edge no', () {
       expect(LiveColorClassifier.isClear(const Rgb(235, 235, 228)), isTrue);
       expect(LiveColorClassifier.isClear(const Rgb(196, 30, 42)), isTrue);
-      expect(LiveColorClassifier.isClear(const Rgb(120, 120, 124)), isFalse);
+      // A dark grey or shadow is not; a white in a dim room (v 0.49) or
+      // gone cream under warm light is.
+      expect(LiveColorClassifier.isClear(const Rgb(88, 88, 92)), isFalse);
+      expect(LiveColorClassifier.isClear(const Rgb(120, 122, 124)), isTrue);
+      expect(LiveColorClassifier.isClear(const Rgb(217, 197, 156)), isTrue);
+      expect(LiveColorClassifier.classify(const Rgb(217, 197, 156)), Face.u);
+      // Skin is not white, nor a clear sticker color for finding the cube.
+      expect(
+        LiveColorClassifier.classify(const Rgb(163, 111, 98)),
+        isNot(Face.u),
+      );
+      expect(LiveColorClassifier.pixelColor(const Rgb(163, 111, 98)), isNull);
       expect(LiveColorClassifier.isClear(const Rgb(20, 60, 20)), isFalse);
       // Hue 36°, between orange and yellow.
       expect(LiveColorClassifier.isClear(const Rgb(230, 150, 30)), isFalse);

@@ -6,9 +6,18 @@ import 'hungarian.dart';
 /// Quick per-sticker guess from fixed hue ranges, for the live preview while
 /// scanning. The final answer comes from [CubeColorAssigner].
 abstract final class LiveColorClassifier {
+  /// Below this saturation a sticker is white: a white under warm (yellow)
+  /// light turns cream (about 0.3), a yellow sticker stays far above.
+  static const _whiteSaturation = 0.35;
+
+  /// A white needs this brightness; lower, it is a grey or a shadow. Kept
+  /// low for dim rooms: what is around the cube (a grey wall) is told
+  /// apart by the face finder, which wants a cube's edge and seams.
+  static const _whiteValue = 0.38;
+
   static Face classify(Rgb color) {
     final hsv = color.toHsv();
-    if (hsv.s < 0.28 && hsv.v > 0.45) return Face.u; // trắng
+    if (hsv.s < _whiteSaturation && hsv.v > _whiteValue) return Face.u;
     final h = hsv.h;
     if (h < 12 || h >= 330) return Face.r; // đỏ
     if (h < 38) return Face.l; // cam
@@ -30,9 +39,9 @@ abstract final class LiveColorClassifier {
   /// not.
   static bool isClear(Rgb color) {
     final hsv = color.toHsv();
-    // White must be bright: a grey wall or a shadowed white is not clear.
-    if (hsv.s < 0.28) return hsv.v > 0.55;
-    if (hsv.v < 0.25 || hsv.s < 0.35) return false;
+    // White must be bright enough: a dark grey or a shadow is not clear.
+    if (hsv.s < _whiteSaturation) return hsv.v > _whiteValue + 0.04;
+    if (hsv.v < 0.25) return false;
     return _hueBounds.every((b) => (hsv.h - b).abs() >= 4);
   }
 
@@ -41,15 +50,14 @@ abstract final class LiveColorClassifier {
   static Face? pixelColor(Rgb color) {
     if (!isClear(color)) return null;
     final face = classify(color);
-    return face == Face.u || color.toHsv().s >= _minPixelSaturation
-        ? face
-        : null;
+    return face == Face.u || !_pale(color.toHsv()) ? face : null;
   }
 
-  /// Pale warm colors (skin, a wooden table) are not taken for stickers
-  /// when looking for the cube: a hand next to it must not look like part
-  /// of a face. Sticker colors, even a pale salmon orange, are stronger.
-  static const _minPixelSaturation = 0.42;
+  /// Pale colors (skin, a wooden table) are not taken for stickers when
+  /// looking for the cube: a hand next to it must not look like part of a
+  /// face. Sticker colors, even a pale salmon orange, are stronger, except
+  /// where a bright light washes them out: then they are very bright.
+  static bool _pale(Hsv hsv) => hsv.s < 0.42 && hsv.v < 0.9;
 
   /// How different two red-or-orange stickers look: hue (degrees, around
   /// the circle) and saturation (a salmon orange is paler than a red).
@@ -143,7 +151,7 @@ abstract final class CubeColorAssigner {
 /// user's own red and orange (and lighting) are told apart better than by
 /// fixed hue ranges.
 class StickerPalette {
-  StickerPalette._(this._references);
+  StickerPalette._(this._references, this._whiteValue);
 
   /// [samples] are the scanned colors in facelet order of [cube].
   factory StickerPalette.fromScan(CubeState cube, List<Rgb> samples) {
@@ -153,13 +161,25 @@ class StickerPalette {
       final (sr, sg, n) = sums[cube[i]]!;
       sums[cube[i]] = (sr + r, sg + g, n + 1);
     }
+    // How bright this cube's white looked: whites are judged against it,
+    // so a dim room's white is not taken for a grey.
+    final whites = [
+      for (var i = 0; i < 54; i++)
+        if (cube[i] == Face.u) samples[i].toHsv().v,
+    ];
     return StickerPalette._({
       for (final MapEntry(key: face, value: (r, g, n)) in sums.entries)
         if (n > 0) face: (r / n, g / n),
-    });
+    }, whites.isEmpty ? 0.8 : whites.reduce((a, b) => a + b) / whites.length);
   }
 
   final Map<Face, (double, double)> _references;
+
+  /// Average brightness (HSV value) of the scanned white stickers.
+  final double _whiteValue;
+
+  /// A white this much darker than when scanned is a grey or a shadow.
+  bool _tooDarkForWhite(double value) => value < 0.6 * _whiteValue;
 
   Face classify(Rgb color) => _ranked(color).first.$1;
 
@@ -170,8 +190,10 @@ class StickerPalette {
     if (hsv.v < 0.22) return false;
     final ranked = _ranked(color);
     if (ranked.length < 2) return true;
-    if (ranked.first.$1 == Face.u && hsv.v < 0.5) return false;
-    return ranked[0].$2 <= 0.3 * ranked[1].$2;
+    if (ranked.first.$1 == Face.u && _tooDarkForWhite(hsv.v)) return false;
+    // Much nearer one color than any other (a little leeway: the light
+    // while solving is not quite the light of the scan).
+    return ranked[0].$2 <= 0.4 * ranked[1].$2;
   }
 
   /// A single pixel's color, for finding the cube in the picture: looser
@@ -182,10 +204,8 @@ class StickerPalette {
     if (hsv.v < 0.2) return null;
     final ranked = _ranked(color);
     final first = ranked.first.$1;
-    if (first == Face.u && hsv.v < 0.45) return null;
-    if (first != Face.u && hsv.s < LiveColorClassifier._minPixelSaturation) {
-      return null;
-    }
+    if (first == Face.u && _tooDarkForWhite(hsv.v)) return null;
+    if (first != Face.u && LiveColorClassifier._pale(hsv)) return null;
     if (ranked.length > 1 && ranked[0].$2 > 0.45 * ranked[1].$2) return null;
     return first;
   }
