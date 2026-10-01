@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rubik_solver/core/cube/cube_state.dart';
 import 'package:rubik_solver/core/cube/face.dart';
 import 'package:rubik_solver/core/cube/move.dart';
+import 'package:rubik_solver/core/solver/kociemba_solver.dart';
 import 'package:rubik_solver/core/vision/color_classifier.dart';
 import 'package:rubik_solver/core/vision/color_math.dart';
 import 'package:rubik_solver/core/vision/face_grid.dart';
@@ -138,6 +139,78 @@ void main() {
       t = _show(tracker, _front(after(2, tracker.plan)), t);
       expect(tracker.done, 2);
       expect(tracker.expected, after(1));
+    });
+
+    test('a wrong move followed by the next one is still caught', () {
+      final tracker = SolveTracker(start: start, solution: solution);
+      var t = _show(tracker, _front(start), Duration.zero);
+      tracker.takeNews();
+
+      // D instead of D', then straight on with L2 before the camera saw.
+      final did = start.applyAlgorithm('D L2');
+      t = _show(tracker, _front(did), t, frames: 20);
+      final news = tracker.takeNews()! as TrackerCorrected;
+      expect(news.wrong, Move.parse('D'));
+      expect(news.replanned, isFalse);
+      expect(Move.format(news.fix), 'L2 D2', reason: 'undo L2, fix D');
+      expect(tracker.mistakes, {0, 1});
+      expect(tracker.expected, did);
+      // The changed formula solves the cube.
+      expect(start.applyAll(tracker.plan).isSolved, isTrue);
+    });
+
+    test('an extra move is caught', () {
+      final tracker = SolveTracker(start: start, solution: solution);
+      var t = _show(tracker, _front(start), Duration.zero);
+      t = _show(tracker, _front(after(1)), t);
+      tracker.takeNews();
+
+      // D' as asked, then an extra U.
+      final did = after(1).apply(Move.parse('U'));
+      _show(tracker, _front(did), t, frames: 20);
+      final news = tracker.takeNews()! as TrackerCorrected;
+      expect(news.wrong, Move.parse('U'));
+      expect(news.fix.first, Move.parse("U'"));
+      expect(tracker.expected, did);
+      expect(start.applyAll(tracker.plan).isSolved, isTrue);
+    });
+
+    test('a new formula when shorter than undoing', () {
+      // A solver giving a 2-move solution from the wrong position, shorter
+      // than undoing it.
+      final tracker = SolveTracker(
+        start: start,
+        solution: solution,
+        resolve: (state) => Move.parseSequence("R' U"),
+      );
+      var t = _show(tracker, _front(start), Duration.zero);
+      tracker.takeNews();
+      final did = start.applyAlgorithm('D L2');
+      _show(tracker, _front(did), t, frames: 20);
+      final news = tracker.takeNews()! as TrackerCorrected;
+      expect(news.replanned, isTrue);
+      expect(news.fix, isEmpty);
+      expect(Move.format(tracker.plan), "D L2 R' U");
+      expect(tracker.current, Move.parse("R'"));
+    });
+
+    test('with the real solver, the changed formula still solves', () {
+      final tracker = SolveTracker(
+        start: start,
+        solution: solution,
+        resolve: KociembaSolver.solveSync,
+      );
+      var t = _show(tracker, _front(start), Duration.zero);
+      t = _show(tracker, _front(after(1)), t);
+      tracker.takeNews();
+      // L instead of L2, then F as planned.
+      final did = after(1).applyAlgorithm('L F');
+      _show(tracker, _front(did), t, frames: 20);
+      expect(tracker.takeNews(), isA<TrackerCorrected>());
+      expect(tracker.expected, did);
+      expect(start.applyAll(tracker.plan).isSolved, isTrue);
+      // No longer than undoing would be.
+      expect(tracker.plan.length - tracker.done, lessThanOrEqualTo(6));
     });
 
     test('a position nothing explains is reported lost', () {

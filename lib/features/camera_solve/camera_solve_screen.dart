@@ -90,6 +90,10 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
   int _lastDone = 0;
   _ReadAhead _readAhead = _ReadAhead.one;
   bool _explain = false;
+
+  /// What was said about the last wrong move, shown for a few seconds.
+  String? _correction;
+  Duration _correctionAt = Duration.zero;
   int _solutionLength = 0;
 
   @override
@@ -159,12 +163,24 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
         // (live frames): one glimpse can be a blur or a misread.
         minFrames: _photos ? 2 : 3,
         stableFor: _photos ? Duration.zero : const Duration(milliseconds: 400),
+        // After a wrong move, a new formula from where the cube is when it
+        // is shorter than undoing (the solver's tables are loaded by now).
+        resolve: _resolve,
       )..addListener(_onTracker);
       setState(() => _tracker = tracker);
     } on UnsolvableCubeException catch (e) {
       setState(() => _error = e.issues.first.message);
     } catch (e) {
       setState(() => _error = 'Không tìm được lời giải: $e');
+    }
+  }
+
+  /// A new solution from [state], or null if none is found quickly.
+  static List<Move>? _resolve(CubeState state) {
+    try {
+      return KociembaSolver.solveSync(state);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -203,15 +219,26 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
         _saidUpTo = 0;
       case TrackerAdvanced():
         HapticFeedback.selectionClick();
-      case TrackerCorrected(:final wrong, :final fix):
+      case TrackerCorrected(:final wrong, :final fix, :final replanned):
         HapticFeedback.heavyImpact();
         final fixVi = fix.map((m) => Speech.move(m).vi).join(', ');
         final fixEn = fix.map((m) => Speech.move(m).en).join(', ');
-        prefix = Speech(
-          'Sai rồi, bạn vừa xoay ${Speech.move(wrong).vi}. '
-              'Xoay $fixVi để sửa.',
-          'Oops, that was ${Speech.move(wrong).en}. Do $fixEn to fix it.',
-        );
+        prefix = replanned
+            ? Speech(
+                'Sai rồi, bạn vừa xoay ${Speech.move(wrong).vi}. '
+                    'Đã đổi công thức.',
+                'Oops, that was ${Speech.move(wrong).en}. New moves.',
+              )
+            : Speech(
+                'Sai rồi, bạn vừa xoay ${Speech.move(wrong).vi}. '
+                    'Xoay $fixVi để sửa.',
+                'Oops, that was ${Speech.move(wrong).en}. '
+                    'Do $fixEn to fix it.',
+              );
+        _correction =
+            'Bạn vừa xoay nhầm ${wrong.notation}: '
+            '${replanned ? 'đã đổi sang công thức mới.' : 'xoay ${Move.format(fix)} để sửa, công thức đã cập nhật.'}';
+        _correctionAt = _clock.elapsed;
         // The fix is said now; the moves after it once it is done.
         _saidUpTo = tracker.done + fix.length;
       case TrackerLost():
@@ -530,12 +557,26 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
         ),
       ),
       const SizedBox(height: 8),
-      if (tracker.isLost)
+      if (tracker.isLost) ...[
         Text(
-          'Camera chưa nhận ra vị trí khối. Kiểm tra nước vừa xoay (xoay '
-          'ngược lại nếu sai), hoặc bấm "Lùi lại" / "Đã xoay" cho đúng nước '
-          'đang làm.',
+          'Camera chưa biết bạn vừa xoay gì. Xoay ngược lại các nước vừa '
+          'xoay nhầm, bấm "Lùi lại" / "Đã xoay" cho đúng nước đang làm, hoặc '
+          'quét lại để có công thức mới cho đúng khối.',
           style: TextStyle(color: theme.colorScheme.error),
+        ),
+        TextButton.icon(
+          onPressed: _scanAgain,
+          icon: const Icon(Icons.camera_alt_outlined),
+          label: const Text('Quét lại để tính công thức mới'),
+        ),
+      ] else if (_correction != null &&
+          _clock.elapsed - _correctionAt < const Duration(seconds: 6))
+        Text(
+          _correction!,
+          style: TextStyle(
+            color: theme.colorScheme.error,
+            fontWeight: FontWeight.w600,
+          ),
         )
       else if (_faceSeen == false || tracker.wrongFace)
         Text(

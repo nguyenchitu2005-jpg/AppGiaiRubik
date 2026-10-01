@@ -40,10 +40,17 @@ class TrackerWentBack extends TrackerNews {
 /// The user turned [wrong] instead of the move asked for; [fix] undoes it
 /// and continues (already put into the plan).
 class TrackerCorrected extends TrackerNews {
-  const TrackerCorrected(this.wrong, this.fix);
+  const TrackerCorrected(this.wrong, this.fix, {this.replanned = false});
 
+  /// The wrong move.
   final Move wrong;
+
+  /// The moves that undo it (to say out loud), or empty when [replanned].
   final List<Move> fix;
+
+  /// The rest of the solution was worked out anew from where the cube is
+  /// (shorter than undoing).
+  final bool replanned;
 }
 
 /// The camera sees a position that no expected or single wrong move
@@ -79,6 +86,7 @@ class SolveTracker extends ChangeNotifier {
     this.lostAfter = const Duration(milliseconds: 1500),
     this.lookahead = 4,
     this.jumpHold = const Duration(milliseconds: 1200),
+    this.resolve,
   }) : _plan = List.of(solution) {
     _replan();
     if (_plan.isEmpty) _phase = TrackerPhase.solved;
@@ -105,6 +113,10 @@ class SolveTracker extends ChangeNotifier {
 
   /// How many moves ahead of the voice the solver may be.
   final int lookahead;
+
+  /// Works out a solution from a position (after a wrong move, to change
+  /// the formula), or null to only undo wrong moves.
+  final List<Move>? Function(CubeState state)? resolve;
 
   /// Skipping ahead several moves at once (or straight to solved) takes a
   /// view held this long: one face alone can mislead (a misread, or the
@@ -322,45 +334,95 @@ class SolveTracker extends ChangeNotifier {
     _explain(seen);
   }
 
-  /// Looks for the one wrong move that explains what the camera sees.
+  /// Looks for the wrong move that explains what the camera sees: a move
+  /// made instead of the one asked for, or an extra one, maybe followed by
+  /// a move or two of the solution before the camera caught it. When one
+  /// explanation is likelier than any other, the formula changes: the
+  /// shorter of undoing the mistake (then going on) and a new solution
+  /// from where the cube is.
   void _explain(List<Face> seen) {
-    final found = <CubeState, (int, Move)>{};
-    for (var k = _confirmed; k <= _done; k++) {
-      for (final move in Move.faceMoves) {
-        if (k < _plan.length && move == _plan[k]) continue;
-        final state = _states[k].apply(move);
-        if (_score(seen, _front(state)) == 9) found[state] ??= (k, move);
+    final n = _plan.length;
+    // The likeliest explanation per position the cube may be in.
+    final found = <CubeState, _Mistake>{};
+    void consider(int k, List<Move> did, int cost) {
+      final state = _states[k].applyAll(did);
+      if (_score(seen, _front(state)) != 9) return;
+      final known = found[state];
+      if (known == null || cost < known.cost) {
+        found[state] = _Mistake(k, did, cost, state);
       }
     }
-    if (found.length != 1) {
+
+    final last = (_done + 2).clamp(0, n);
+    for (var k = _confirmed; k <= last; k++) {
+      for (final wrong in Move.faceMoves) {
+        for (var then = 0; then <= 2; then++) {
+          // Instead of the move asked for (the same face turned the wrong
+          // way is likeliest), then on with the solution.
+          if (k < n && wrong != _plan[k] && k + 1 + then <= n) {
+            consider(k, [
+              wrong,
+              ..._plan.sublist(k + 1, k + 1 + then),
+            ], then + (wrong.layer == _plan[k].layer ? 0 : 1));
+          }
+          // An extra move, then on with the solution.
+          if (k + then <= n) {
+            consider(k, [wrong, ..._plan.sublist(k, k + then)], then + 2);
+          }
+        }
+      }
+    }
+    if (found.isEmpty) {
       _lost = true;
       _news = const TrackerLost();
       return;
     }
-    final (k, wrong) = found.values.single;
-    // Undo the wrong move, then make the one asked for (merged when both
-    // turn the same layer: R' instead of R is fixed by R2).
-    final fix = k == _plan.length
-        ? [wrong.inverse]
-        : wrong.layer == _plan[k].layer
-        ? [Move(wrong.layer, (_plan[k].turns - wrong.turns) % 4)]
-        : [wrong.inverse, _plan[k]];
-    _plan = [
-      ..._plan.sublist(0, k),
-      wrong,
-      ...fix,
-      ..._plan.sublist(k == _plan.length ? k : k + 1),
-    ];
-    final shift = fix.length;
-    final shifted = {for (final i in _mistakes) i > k ? i + shift : i};
+    final best = found.values.reduce((a, b) => a.cost <= b.cost ? a : b);
+    // Two different positions as likely: ask the user, do not guess.
+    if (found.values.where((m) => m.cost == best.cost).length > 1) {
+      _lost = true;
+      _news = const TrackerLost();
+      return;
+    }
+
+    // Undo what was done, then the solution from where it went wrong
+    // (merging turns of the same face: R' instead of R is fixed by R2).
+    final undo = _simplify([
+      ...Move.invertSequence(best.did),
+      ..._plan.sublist(best.k),
+    ]);
+    final fresh = resolve?.call(best.state);
+    final replanned = fresh != null && fresh.length < undo.length;
+    final rest = replanned ? fresh : undo;
+    _plan = [..._plan.sublist(0, best.k), ...best.did, ...rest];
     _mistakes
-      ..clear()
-      ..addAll(shifted)
-      ..add(k);
+      ..removeWhere((i) => i >= best.k)
+      ..addAll([for (var i = 0; i < best.did.length; i++) best.k + i]);
     _replan();
-    _done = _confirmed = k + 1;
-    _phase = TrackerPhase.solving;
-    _news = TrackerCorrected(wrong, fix);
+    _done = _confirmed = best.k + best.did.length;
+    _phase = _done == _plan.length ? TrackerPhase.solved : TrackerPhase.solving;
+    // The moves to say as the fix: the undo, up to where it joins the
+    // solution again (the rest is said as usual).
+    final tail = n - best.k - 1 < 0 ? 0 : n - best.k - 1;
+    final fix = replanned
+        ? <Move>[]
+        : rest.sublist(0, (rest.length - tail).clamp(0, rest.length));
+    _news = TrackerCorrected(best.did.first, fix, replanned: replanned);
+  }
+
+  /// Merges neighbouring turns of the same face (R R → R2, R R' → none).
+  static List<Move> _simplify(List<Move> moves) {
+    final out = <Move>[];
+    for (final move in moves) {
+      if (out.isNotEmpty && out.last.layer == move.layer) {
+        final turns = (out.last.turns + move.turns) % 4;
+        out.removeLast();
+        if (turns != 0) out.add(Move(move.layer, turns));
+      } else {
+        out.add(move);
+      }
+    }
+    return out;
   }
 
   void _replan() {
@@ -421,4 +483,22 @@ class ExpectedFronts {
     }
     return false;
   }
+}
+
+/// A wrong move found to explain what the camera sees.
+class _Mistake {
+  const _Mistake(this.k, this.did, this.cost, this.state);
+
+  /// Where in the solution it happened.
+  final int k;
+
+  /// What the user did from there: the wrong move, maybe followed by moves
+  /// of the solution.
+  final List<Move> did;
+
+  /// How unlikely (lower is likelier).
+  final int cost;
+
+  /// Where the cube is now.
+  final CubeState state;
 }
