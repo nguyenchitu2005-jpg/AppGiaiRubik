@@ -4,3 +4,6 @@ Future<R> runInBackground<R>(R Function() work) async {
   await Future<void>.delayed(const Duration(milliseconds: 50));
   return work();
 }
+
+/// Whether [runInBackground] really runs off the UI thread.
+const bool runsInBackground = false;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/cube/face.dart';
+import '../../core/solver/kociemba_solver.dart';
 import '../../core/vision/color_classifier.dart';
 import '../../core/vision/face_locator.dart';
 import '../../core/vision/scan_assembler.dart';
@@ -52,12 +53,15 @@ class _ScanScreenState extends State<ScanScreen> {
   int _capturedCount = 0;
 
   /// Finds the face asked for anywhere in the picture.
-  late final FaceLocator _locator = FaceLocator(
+  FaceLocator _locator() => _locatorFor(_scan.step?.face);
+
+  /// Made in a static function: it holds only [asked], so it can be sent
+  /// to a background isolate.
+  static FaceLocator _locatorFor(Face? asked) => FaceLocator(
     colorOf: LiveColorClassifier.pixelColor,
     centerOk: (center) {
       // Red and orange, white and yellow, may read as each other until
       // the scanned centers tell them apart.
-      final asked = _scan.step?.face;
       const lookAlikes = [
         {Face.r, Face.l},
         {Face.u, Face.d},
@@ -74,6 +78,8 @@ class _ScanScreenState extends State<ScanScreen> {
     super.initState();
     AppOrientation.lockPortrait();
     _scan.addListener(_onScanChanged);
+    // Ready to solve as soon as the last face is in.
+    if (widget.solveAfter) KociembaSolver.warmUp();
   }
 
   @override

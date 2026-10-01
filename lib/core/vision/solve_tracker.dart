@@ -166,16 +166,18 @@ class SolveTracker extends ChangeNotifier {
   /// Whether [asRead] (9 colors as the camera reads them) is the front face
   /// of a position the cube may be in now: a move or two back, a few ahead.
   /// Helps tell the cube from look-alike areas of the picture.
-  bool looksExpected(List<Face> asRead) {
+  bool looksExpected(List<Face> asRead) => expectedFronts.matches(asRead);
+
+  /// The front faces [looksExpected] compares with, as plain data (to use
+  /// on a background isolate).
+  ExpectedFronts get expectedFronts {
     final first = (_done - 2).clamp(0, _plan.length);
     final last = (_done + lookahead).clamp(0, _plan.length);
-    for (final mirror in _mirrored == null ? [false, true] : [_mirrored!]) {
-      final seen = _orient(asRead, mirror);
-      for (var k = first; k <= last; k++) {
-        if (_score(seen, _front(_states[k])) >= 8) return true;
-      }
-    }
-    return false;
+    return ExpectedFronts(
+      fronts: [for (var k = first; k <= last; k++) _front(_states[k])],
+      mirrors: _mirrored == null ? const [false, true] : [_mirrored!],
+      turns: cameraTurns,
+    );
   }
 
   /// The latest news, taken once.
@@ -390,4 +392,33 @@ class _Frame {
   final Duration time;
   final List<Face> labels;
   final bool clear;
+}
+
+/// Front faces the cube may show now, and how the camera may read them.
+class ExpectedFronts {
+  const ExpectedFronts({
+    required this.fronts,
+    required this.mirrors,
+    required this.turns,
+  });
+
+  final List<List<Face>> fronts;
+  final List<bool> mirrors;
+  final int turns;
+
+  /// [asRead] (9 colors as the camera reads them) is one of [fronts], all
+  /// but one sticker alike.
+  bool matches(List<Face> asRead) {
+    for (final mirror in mirrors) {
+      final seen = FaceGrid.oriented(asRead, mirror: mirror, turns: turns);
+      for (final front in fronts) {
+        var same = 0;
+        for (var i = 0; i < 9; i++) {
+          if (seen[i] == front[i]) same++;
+        }
+        if (same >= 8) return true;
+      }
+    }
+    return false;
+  }
 }

@@ -21,6 +21,20 @@ abstract final class KociembaSolver {
     return runInBackground(() => _solveFacelets(facelets));
   }
 
+  /// Loads the solver's large tables ahead of time, in the background, so
+  /// the first real solve is quick (on a phone running a debug build that
+  /// first load takes seconds). Isolates of the app share the tables once
+  /// loaded. Does nothing where work cannot leave the UI thread (the web).
+  static Future<void> warmUp() {
+    if (!runsInBackground) return Future.value();
+    return _warm ??= runInBackground(() {
+      solveSync(CubeState.solved().applyAlgorithm("R U F' L2 D B'"));
+      return true;
+    }).then((_) {}, onError: (Object _) => _warm = null);
+  }
+
+  static Future<void>? _warm;
+
   /// Synchronous variant for tests and for code already off the UI thread.
   static List<Move> solveSync(CubeState state) =>
       _solveFacelets(_validatedFacelets(state));

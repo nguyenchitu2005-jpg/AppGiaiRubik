@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
@@ -8,6 +9,7 @@ import 'package:rubik_solver/core/cube/move.dart';
 import 'package:rubik_solver/core/vision/color_classifier.dart';
 import 'package:rubik_solver/core/vision/color_math.dart';
 import 'package:rubik_solver/core/vision/face_locator.dart';
+import 'package:rubik_solver/core/vision/solve_tracker.dart';
 import 'package:rubik_solver/core/vision/yuv_image.dart';
 
 const _colors = {
@@ -257,6 +259,37 @@ void main() {
         reason: 'face at $left,$top',
       );
     }
+  });
+
+  test('a face finder runs on a background isolate', () async {
+    // As the solve screen makes it: the scanned palette, the expected
+    // fronts, plain data only (the phone reads frames off the UI thread).
+    final palette = StickerPalette.fromScan(cube, [
+      for (var i = 0; i < 54; i++) _colors[cube[i]]!,
+    ]);
+    final expected = ExpectedFronts(
+      fronts: [front],
+      mirrors: const [false, true],
+      turns: 0,
+    );
+    final finder = FaceLocator(
+      colorOf: palette.pixelColor,
+      centerOk: (c) => c == Face.f,
+      bonus: (colors) => expected.matches(colors) ? 3 : 0,
+    );
+    final photo = _photo(front, left: 200, top: 120, side: 240);
+    final grid = await Isolate.run(
+      () => finder.locate(
+        GridSampler.downsample(
+          photo,
+          width: 200,
+          aspect: 640 / 480,
+          rotation: 0,
+        ),
+      ),
+    );
+    expect(grid, isNotNull);
+    expect(grid!.left * 640, closeTo(200, 20));
   });
 
   test('no face, or not the face looked for: nothing found', () {

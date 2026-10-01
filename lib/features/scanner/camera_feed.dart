@@ -6,6 +6,9 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import 'dart:typed_data';
+
+import '../../core/concurrency/background.dart';
 import '../../core/cube/face.dart';
 import '../../core/vision/color_math.dart';
 import '../../core/vision/face_locator.dart';
@@ -60,8 +63,10 @@ class CameraFeed extends StatefulWidget {
   /// The camera opened; true when colors come from photos.
   final ValueChanged<bool>? onReady;
 
-  /// Finds the face anywhere in the picture.
-  final FaceLocator? locator;
+  /// Makes a face finder for each picture, to find the face anywhere in
+  /// it. The finder may run on a background isolate: it must hold only
+  /// plain data (not the screen's state).
+  final FaceLocator Function()? locator;
 
   /// After each picture: where [locator] found the face (null: nowhere),
   /// in normalized coordinates of the preview.
@@ -87,9 +92,6 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
   /// Where frames cannot be streamed, a photo is taken this often (a
   /// browser takes them quickly; Windows saves each to a file).
   static final _photoEvery = Duration(milliseconds: kIsWeb ? 450 : 700);
-
-  /// Width of the small picture the face is looked for in.
-  static const _searchWidth = 200;
 
   /// Where [CameraFeed.locator] last found the face.
   Rect? _found;
@@ -284,18 +286,24 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
     }
     _analyzing = true;
     _lastAnalyzed = now;
-    try {
-      final samples = _read(
-        _toYuv(image),
-        camera,
-        rotation: camera.description.sensorOrientation,
-        // The sensor is landscape; upright, the preview is turned.
-        aspect: 1 / camera.value.aspectRatio,
-      );
-      if (samples != null) widget.onSamples(samples, now);
-    } finally {
-      _analyzing = false;
-    }
+    // The camera reuses its buffers: the frame is copied before being read
+    // in the background. Frames arriving meanwhile are skipped.
+    _read(
+          _toYuv(image),
+          camera,
+          rotation: camera.description.sensorOrientation,
+          // The sensor is landscape; upright, the preview is turned.
+          aspect: 1 / camera.value.aspectRatio,
+        )
+        .then((samples) {
+          if (samples != null && mounted && widget.active) {
+            widget.onSamples(samples, now);
+          }
+        })
+        .catchError((Object _) {
+          // A frame that cannot be read is simply skipped.
+        })
+        .whenComplete(() => _analyzing = false);
   }
 
   /// Takes a photo and reads the 9 colors inside the grid (waiting for a
@@ -320,58 +328,50 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
     final codec = await ui.instantiateImageCodec(bytes);
     final image = (await codec.getNextFrame()).image;
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    final samples = _read(
-      RgbaImage(
-        width: image.width,
-        height: image.height,
-        bytes: data!.buffer.asUint8List(),
-      ),
+    final pixels = RgbaImage(
+      width: image.width,
+      height: image.height,
+      bytes: data!.buffer.asUint8List(),
+    );
+    image.dispose();
+    return _read(
+      pixels,
       camera,
       rotation: 0,
-      aspect: image.width / image.height,
+      aspect: pixels.width / pixels.height,
       // Windows shows the webcam mirrored but takes photos unmirrored.
       mirrored: isWindows,
       fallback: fallback,
     );
-    image.dispose();
-    return samples;
   }
 
-  /// The 9 colors of the face found in [image]; without a
-  /// [CameraFeed.locator], those in the fixed grid. When the locator finds
-  /// no face, null: the fixed grid would read whatever is behind it (a
-  /// white wall is not the white face), unless the user asked for a photo
-  /// ([fallback]).
-  List<Rgb>? _read(
+  /// The 9 colors of the face found in [image]; see [_ReadJob]. Done on a
+  /// background isolate where there is one: looking for the face is heavy,
+  /// and on a phone it would hold up the screen.
+  Future<List<Rgb>?> _read(
     PixelSource image,
     CameraController camera, {
     required int rotation,
     required double aspect,
     bool mirrored = false,
     bool fallback = false,
-  }) {
-    final locator = widget.locator;
-    Rect? found;
-    if (locator != null) {
-      found = locator.locate(
-        GridSampler.downsample(
-          image,
-          width: _searchWidth,
-          aspect: aspect,
-          rotation: rotation,
-          mirrored: mirrored,
-        ),
-      );
-      widget.onLocated?.call(found);
-    }
-    _found = found;
-    if (locator != null && found == null && !fallback) return null;
-    return GridSampler.sample(
-      image,
-      grid: found ?? _gridRect(camera),
+  }) async {
+    final job = _ReadJob(
+      image: image,
+      locator: widget.locator?.call(),
+      guide: _gridRect(camera),
       rotation: rotation,
+      aspect: aspect,
       mirrored: mirrored,
+      fallback: fallback,
     );
+    final (samples, found) = runsInBackground
+        ? await runInBackground(job.run)
+        : job.run();
+    if (!mounted) return null;
+    if (job.locator != null) widget.onLocated?.call(found);
+    _found = found;
+    return samples;
   }
 
   /// A photo read like a streamed frame.
@@ -415,10 +415,10 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
   static YuvImage _toYuv(CameraImage image) => YuvImage(
     width: image.width,
     height: image.height,
-    y: image.planes[0].bytes,
+    y: Uint8List.fromList(image.planes[0].bytes),
     yRowStride: image.planes[0].bytesPerRow,
-    u: image.planes[1].bytes,
-    v: image.planes[2].bytes,
+    u: Uint8List.fromList(image.planes[1].bytes),
+    v: Uint8List.fromList(image.planes[2].bytes),
     uvRowStride: image.planes[1].bytesPerRow,
     uvPixelStride: image.planes[1].bytesPerPixel ?? 1,
   );
@@ -586,5 +586,62 @@ class _CameraError extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Reading one picture, made only of plain data so that it can run on a
+/// background isolate.
+class _ReadJob {
+  const _ReadJob({
+    required this.image,
+    required this.locator,
+    required this.guide,
+    required this.rotation,
+    required this.aspect,
+    required this.mirrored,
+    required this.fallback,
+  });
+
+  final PixelSource image;
+  final FaceLocator? locator;
+
+  /// The fixed grid in the middle of the preview.
+  final Rect guide;
+  final int rotation;
+  final double aspect;
+  final bool mirrored;
+
+  /// Read the fixed grid when the locator finds no face.
+  final bool fallback;
+
+  /// Width of the small picture the face is looked for in.
+  static const _searchWidth = 200;
+
+  /// The 9 colors of the face found (or in the fixed grid without a
+  /// locator), and where it was found. When the locator finds no face,
+  /// no colors: the fixed grid would read whatever is behind it (a white
+  /// wall is not the white face), unless [fallback].
+  (List<Rgb>?, Rect?) run() {
+    final locator = this.locator;
+    Rect? found;
+    if (locator != null) {
+      found = locator.locate(
+        GridSampler.downsample(
+          image,
+          width: _searchWidth,
+          aspect: aspect,
+          rotation: rotation,
+          mirrored: mirrored,
+        ),
+      );
+      if (found == null && !fallback) return (null, null);
+    }
+    final samples = GridSampler.sample(
+      image,
+      grid: found ?? guide,
+      rotation: rotation,
+      mirrored: mirrored,
+    );
+    return (samples, found);
   }
 }

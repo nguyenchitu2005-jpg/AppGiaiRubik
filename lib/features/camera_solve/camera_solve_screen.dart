@@ -75,8 +75,8 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
   late final Face Function(Rgb) _classify;
   late final bool Function(Rgb) _isClear;
 
-  /// Finds the front face anywhere in the picture.
-  late final FaceLocator _locator;
+  /// This cube's scanned colors (null without a scan).
+  late final StickerPalette? _scanPalette;
 
   /// The camera's last picture showed the front face (null before any).
   bool? _faceSeen;
@@ -96,15 +96,9 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
   void initState() {
     super.initState();
     AppOrientation.lockPortrait();
-    final palette = _palette();
+    final palette = _scanPalette = _palette();
     _classify = palette?.classify ?? LiveColorClassifier.classify;
     _isClear = palette?.isClear ?? LiveColorClassifier.isClear;
-    _locator = FaceLocator(
-      colorOf: palette?.pixelColor ?? LiveColorClassifier.pixelColor,
-      centerOk: (center) => center == widget.start.center(Face.f),
-      // The colors the solution expects beat a look-alike patch.
-      bonus: (colors) => _tracker?.looksExpected(colors) ?? false ? 3 : 0,
-    );
     _solve();
   }
 
@@ -119,6 +113,22 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
   }
 
   late final Speaker _speaker = ref.read(speakerProvider);
+
+  /// Finds the front face anywhere in the picture. Made in a static
+  /// function from plain data only, so that it can be sent to a background
+  /// isolate.
+  static FaceLocator _locatorFor(
+    StickerPalette? palette,
+    Face center,
+    ExpectedFronts? expected,
+  ) => FaceLocator(
+    colorOf: palette?.pixelColor ?? LiveColorClassifier.pixelColor,
+    centerOk: (c) => c == center,
+    // The colors the solution expects beat a look-alike patch.
+    bonus: expected == null
+        ? null
+        : (colors) => expected.matches(colors) ? 3 : 0,
+  );
 
   /// The scanned colors of this very cube, when the scan can be matched to
   /// it (the user may have turned the cube while fixing colors).
@@ -312,7 +322,11 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
       live: tracker?.phase == TrackerPhase.solved ? null : _live,
       stable: tracker != null && tracker.phase != TrackerPhase.aligning,
       onSamples: addSamples,
-      locator: _locator,
+      locator: () => _locatorFor(
+        _scanPalette,
+        widget.start.center(Face.f),
+        _tracker?.expectedFronts,
+      ),
       onLocated: (grid) => _faceSeen = grid != null,
       maxHeight: MediaQuery.sizeOf(context).height * (_photos ? 0.5 : 0.4),
     );

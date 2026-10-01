@@ -74,10 +74,13 @@ void main() {
           final face = scan.step!.face;
           final samples = look(face);
           // ignore: avoid_print
-          print('STUCK $name at ${face.letter} gain=${gains[face]!.toStringAsFixed(2)} '
-              'center=${samples[4]} s=${samples[4].toHsv().s.toStringAsFixed(2)} '
-              'live=${scan.live?.map((f) => f.letter).join()} clear=${scan.isClear} '
-              'unclear=${[for (final c in samples) if (!LiveColorClassifier.isClear(c)) '$c h${c.toHsv().h.round()} s${c.toHsv().s.toStringAsFixed(2)}']}');
+          print(
+            'STUCK $name at ${face.letter} gain=${gains[face]!.toStringAsFixed(2)} '
+            'center=${samples[4]} s=${samples[4].toHsv().s.toStringAsFixed(2)} '
+            'live=${scan.live?.map((f) => f.letter).join()} clear=${scan.isClear} '
+            'unclear=${[for (final c in samples)
+              if (!LiveColorClassifier.isClear(c)) '$c h${c.toHsv().h.round()} s${c.toHsv().s.toStringAsFixed(2)}']}',
+          );
           continue;
         }
         // What the user sees of the scanned faces.
