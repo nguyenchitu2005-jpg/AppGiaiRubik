@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/cube/face.dart';
@@ -102,28 +104,43 @@ class ScanController extends ChangeNotifier {
       entry.key: [for (final c in entry.value) _label(c)],
   };
 
-  /// A sticker's color, telling red from orange by this cube's own red and
-  /// orange centers once scanned. Hues alone fail there: a salmon orange
-  /// under a bright webcam has a red's hue. The center of the face being
-  /// scanned is the color asked for (red or orange) unless it looks like
-  /// the other one already scanned.
+  /// A sticker's color, telling apart the colors a camera mixes up by this
+  /// cube's own centers once scanned:
+  /// - red and orange: a salmon orange under a bright webcam has a red's
+  ///   hue;
+  /// - white and yellow: a yellow washed out by bright light looks white,
+  ///   a white under warm light looks cream.
+  /// The center of the face being scanned is the color asked for unless it
+  /// looks like the other one already scanned.
   Face _label(Rgb color, {bool center = false}) {
     final guess = LiveColorClassifier.classify(color);
-    if (guess != Face.r && guess != Face.l) return guess;
-    final red = _captured[Face.r]?[4];
-    final orange = _captured[Face.l]?[4];
-    double from(Rgb reference) =>
-        LiveColorClassifier.redOrangeDistance(color, reference);
-    // Close enough to a scanned center to be its color.
-    const same = 1.5;
-    if (red != null && orange != null) {
-      return from(red) <= from(orange) ? Face.r : Face.l;
+    for (final (a, b, distance, same) in _lookAlikes) {
+      if (guess != a && guess != b) continue;
+      final ra = _captured[a]?[4], rb = _captured[b]?[4];
+      if (ra != null && rb != null) {
+        return distance(color, ra) <= distance(color, rb) ? a : b;
+      }
+      // Close enough to a scanned center to be its color.
+      if (ra != null) return distance(color, ra) <= same ? a : b;
+      if (rb != null) return distance(color, rb) <= same ? b : a;
+      final asked = step?.face;
+      if (center && (asked == a || asked == b)) return asked!;
+      return guess;
     }
-    if (red != null) return from(red) <= same ? Face.r : Face.l;
-    if (orange != null) return from(orange) <= same ? Face.l : Face.r;
-    final asked = step?.face;
-    if (center && (asked == Face.r || asked == Face.l)) return asked!;
     return guess;
+  }
+
+  /// Pairs of colors told apart by the scanned centers, how to compare two
+  /// stickers of them, and how close is the same color.
+  static final _lookAlikes = <(Face, Face, double Function(Rgb, Rgb), double)>[
+    (Face.r, Face.l, LiveColorClassifier.redOrangeDistance, 1.5),
+    (Face.u, Face.d, _chromaDistance, 0.02),
+  ];
+
+  static double _chromaDistance(Rgb a, Rgb b) {
+    final (ar, ag) = a.chromaticity;
+    final (br, bg) = b.chromaticity;
+    return sqrt((ar - br) * (ar - br) + (ag - bg) * (ag - bg));
   }
 
   void addFrame(List<Rgb> samples, Duration time) {

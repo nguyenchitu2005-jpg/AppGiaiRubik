@@ -51,15 +51,21 @@ class _ScanScreenState extends State<ScanScreen> {
   /// Faces captured so far, to notice each new one.
   int _capturedCount = 0;
 
-  /// Finds the face asked for anywhere in the picture (a red or orange
-  /// center may read as the other until both are scanned).
+  /// Finds the face asked for anywhere in the picture.
   late final FaceLocator _locator = FaceLocator(
     colorOf: LiveColorClassifier.pixelColor,
     centerOk: (center) {
+      // Red and orange, white and yellow, may read as each other until
+      // the scanned centers tell them apart.
       final asked = _scan.step?.face;
-      const redOrange = {Face.r, Face.l};
+      const lookAlikes = [
+        {Face.r, Face.l},
+        {Face.u, Face.d},
+      ];
       return center == asked ||
-          (redOrange.contains(center) && redOrange.contains(asked));
+          lookAlikes.any(
+            (pair) => pair.contains(center) && pair.contains(asked),
+          );
     },
   );
 

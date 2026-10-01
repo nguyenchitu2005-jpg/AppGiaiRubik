@@ -270,5 +270,38 @@ void main() {
       expect(scan.isComplete, isTrue);
       expect(scan.assemble().state, cube);
     });
+
+    test(
+      'a yellow face washed out by bright light is still the yellow one',
+      () {
+        // The last face held in a brighter spot: its yellows read nearly
+        // white (saturation ~0.27), as off a real webcam.
+        Rgb washed(Rgb c) => identical(c, _colors[Face.d])
+            ? const Rgb(255, 255, 185)
+            : identical(c, _colors[Face.u])
+            ? const Rgb(255, 255, 250)
+            : c;
+        final scan = ScanController();
+        var t = Duration.zero;
+        for (final step in ScanController.steps) {
+          final samples = [
+            for (final c in _face(cube, step.face))
+              step.face == Face.d ? washed(c) : c,
+          ];
+          expect(
+            LiveColorClassifier.classify(samples[4]),
+            step.face == Face.d ? Face.u : step.face,
+            reason: 'the washed yellow center reads white by itself',
+          );
+          for (var i = 0; i < 20 && scan.step?.face == step.face; i++) {
+            t += frame;
+            scan.addFrame(samples, t);
+          }
+          expect(scan.step?.face, isNot(step.face), reason: '${step.face}');
+        }
+        expect(scan.isComplete, isTrue);
+        expect(scan.assemble().state, cube);
+      },
+    );
   });
 }
