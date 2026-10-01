@@ -195,8 +195,69 @@ void main() {
       expect(LiveColorClassifier.isClear(const Rgb(196, 30, 42)), isTrue);
       expect(LiveColorClassifier.isClear(const Rgb(120, 120, 124)), isFalse);
       expect(LiveColorClassifier.isClear(const Rgb(20, 60, 20)), isFalse);
-      // Hue 12°, between red and orange.
-      expect(LiveColorClassifier.isClear(const Rgb(220, 76, 30)), isFalse);
+      // Hue 36°, between orange and yellow.
+      expect(LiveColorClassifier.isClear(const Rgb(230, 150, 30)), isFalse);
+      // A salmon orange with a red's hue (8°) is clear: red or orange is
+      // settled by the cube's own centers.
+      expect(LiveColorClassifier.isClear(const Rgb(254, 112, 91)), isTrue);
+    });
+
+    test('a salmon orange is told from red by the scanned centers', () {
+      // Read off a real webcam: a pale orange (hue 5-10°) and a deep red.
+      const salmon = [
+        Rgb(254, 112, 91),
+        Rgb(255, 127, 108),
+        Rgb(246, 128, 112),
+        Rgb(255, 152, 132),
+        Rgb(235, 131, 121),
+        Rgb(255, 142, 126),
+      ];
+      const red = Rgb(225, 30, 55);
+      Rgb paint(Face f, int i) => f == Face.l
+          ? salmon[i % salmon.length]
+          : f == Face.r
+          ? red
+          : _colors[f]!;
+      List<Rgb> look(Face face) => [
+        for (var i = 0; i < 9; i++)
+          paint(i == 4 ? face : cube[face.offset + i], i),
+      ];
+      final scan = ScanController();
+      var t = Duration.zero;
+      for (final step in ScanController.steps.take(4)) {
+        final samples = look(step.face);
+        for (var i = 0; i < 12 && scan.step?.face == step.face; i++) {
+          t += frame;
+          scan.addFrame(samples, t);
+          if (scan.step?.face == step.face) {
+            expect(scan.centerMatches, isTrue, reason: '${step.face}');
+          }
+        }
+        expect(scan.step?.face, isNot(step.face), reason: 'captured');
+      }
+      // After both centers: the stickers are labeled by them.
+      expect(scan.capturedPreview[Face.l]![4], Face.l);
+      final preview = scan.capturedPreview;
+      for (final face in [Face.f, Face.r, Face.b, Face.l]) {
+        for (var i = 0; i < 9; i++) {
+          if (i == 4) continue;
+          final truth = cube[face.offset + i];
+          if (truth == Face.l || truth == Face.r) {
+            expect(preview[face]![i], truth, reason: '$face $i');
+          }
+        }
+      }
+
+      // The last two faces, then the whole cube comes out right.
+      for (final step in ScanController.steps.skip(4)) {
+        final samples = look(step.face);
+        for (var i = 0; i < 12 && scan.step?.face == step.face; i++) {
+          t += frame;
+          scan.addFrame(samples, t);
+        }
+      }
+      expect(scan.isComplete, isTrue);
+      expect(scan.assemble().state, cube);
     });
   });
 }

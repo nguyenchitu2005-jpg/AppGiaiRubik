@@ -19,17 +19,30 @@ abstract final class LiveColorClassifier {
   }
 
   /// Hues where one sticker color turns into the next (see [classify]).
-  static const _hueBounds = [12.0, 38.0, 75.0, 165.0, 265.0, 330.0];
+  /// Not the red/orange one (12°): cubes differ there, a salmon orange can
+  /// have a red's hue. The scan tells them apart by the cube's own red and
+  /// orange (see ScanController), the final colors by [CubeColorAssigner].
+  static const _hueBounds = [38.0, 75.0, 165.0, 265.0, 330.0];
 
   /// Whether [color] reads clearly as a sticker: white, or a bright enough,
   /// saturated enough color not right on the edge between two colors. A
-  /// dark gap, a shadow, a grey background or a red-or-orange guess is not.
+  /// dark gap, a shadow, a grey background or a yellow-or-orange guess is
+  /// not.
   static bool isClear(Rgb color) {
     final hsv = color.toHsv();
     // White must be bright: a grey wall or a shadowed white is not clear.
     if (hsv.s < 0.28) return hsv.v > 0.55;
     if (hsv.v < 0.25 || hsv.s < 0.35) return false;
     return _hueBounds.every((b) => (hsv.h - b).abs() >= 4);
+  }
+
+  /// How different two red-or-orange stickers look: hue (degrees, around
+  /// the circle) and saturation (a salmon orange is paler than a red).
+  static double redOrangeDistance(Rgb a, Rgb b) {
+    final ha = a.toHsv(), hb = b.toHsv();
+    var dh = (ha.h - hb.h).abs() % 360;
+    if (dh > 180) dh = 360 - dh;
+    return dh / 10 + (ha.s - hb.s).abs() / 0.1;
   }
 }
 

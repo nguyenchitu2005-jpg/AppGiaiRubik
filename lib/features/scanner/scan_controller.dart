@@ -99,12 +99,39 @@ class ScanController extends ChangeNotifier {
   /// Captured faces as best guesses, for a small preview.
   Map<Face, List<Face>> get capturedPreview => {
     for (final entry in _captured.entries)
-      entry.key: [for (final c in entry.value) LiveColorClassifier.classify(c)],
+      entry.key: [for (final c in entry.value) _label(c)],
   };
+
+  /// A sticker's color, telling red from orange by this cube's own red and
+  /// orange centers once scanned. Hues alone fail there: a salmon orange
+  /// under a bright webcam has a red's hue. The center of the face being
+  /// scanned is the color asked for (red or orange) unless it looks like
+  /// the other one already scanned.
+  Face _label(Rgb color, {bool center = false}) {
+    final guess = LiveColorClassifier.classify(color);
+    if (guess != Face.r && guess != Face.l) return guess;
+    final red = _captured[Face.r]?[4];
+    final orange = _captured[Face.l]?[4];
+    double from(Rgb reference) =>
+        LiveColorClassifier.redOrangeDistance(color, reference);
+    // Close enough to a scanned center to be its color.
+    const same = 1.5;
+    if (red != null && orange != null) {
+      return from(red) <= from(orange) ? Face.r : Face.l;
+    }
+    if (red != null) return from(red) <= same ? Face.r : Face.l;
+    if (orange != null) return from(orange) <= same ? Face.l : Face.r;
+    final asked = step?.face;
+    if (center && (asked == Face.r || asked == Face.l)) return asked!;
+    return guess;
+  }
 
   void addFrame(List<Rgb> samples, Duration time) {
     if (isComplete) return;
-    final labels = [for (final s in samples) LiveColorClassifier.classify(s)];
+    final labels = [
+      for (var i = 0; i < samples.length; i++)
+        _label(samples[i], center: i == 4),
+    ];
     _frames
       ..add(_Frame(time, labels, samples))
       ..removeWhere((f) => time - f.time > stableFor * 3);
