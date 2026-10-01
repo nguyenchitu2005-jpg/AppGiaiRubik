@@ -228,7 +228,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   locator: _locator,
                   onLocated: (grid) {
                     if (grid == null) {
-                      _scan.lostSight();
+                      _scan.lostSight(_clock.elapsed);
                     } else {
                       _scan.nextGrid = grid;
                     }

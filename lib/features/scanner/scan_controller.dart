@@ -200,11 +200,16 @@ class ScanController extends ChangeNotifier {
     _reset();
   }
 
-  /// The face went out of sight: what was seen no longer holds still.
-  void lostSight() {
+  /// The face finder lost the face at [time]. A frame now and then is
+  /// missed (a blur, a hand, a far face read at the edge): what was seen
+  /// still holds. Only a face gone for [lostSightAfter] starts over.
+  void lostSight(Duration time) {
     if (_frames.isEmpty) return;
-    _reset();
+    if (time - _frames.last.time >= lostSightAfter) _reset();
   }
+
+  /// See [lostSight].
+  static const lostSightAfter = Duration(seconds: 1);
 
   void retakePrevious() {
     if (_stepIndex == 0) return;
@@ -240,8 +245,9 @@ class ScanController extends ChangeNotifier {
     final ga = a.grid, gb = b.grid;
     if (ga != null && gb != null) {
       final size = (ga.width + gb.width) / 2;
-      if ((ga.center - gb.center).distance > size * 0.15) return false;
-      if ((ga.width - gb.width).abs() > size * 0.15) return false;
+      // A far face is found a few pixels off from frame to frame.
+      if ((ga.center - gb.center).distance > size * 0.2) return false;
+      if ((ga.width - gb.width).abs() > size * 0.2) return false;
     }
     return true;
   }

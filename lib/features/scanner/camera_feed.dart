@@ -300,8 +300,10 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
             widget.onSamples(samples, now);
           }
         })
-        .catchError((Object _) {
-          // A frame that cannot be read is simply skipped.
+        .catchError((Object error) {
+          // A frame that cannot be read is skipped (but said, in case it
+          // is every frame).
+          debugPrint('Không đọc được khung hình: $error');
         })
         .whenComplete(() => _analyzing = false);
   }
@@ -384,8 +386,9 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
       if (samples != null && mounted && _camera == camera && widget.active) {
         widget.onSamples(samples, widget.clock.elapsed);
       }
-    } catch (_) {
-      // A missed photo is simply skipped.
+    } catch (error) {
+      // A missed photo is skipped (but said, in case it is every photo).
+      debugPrint('Không đọc được ảnh: $error');
     } finally {
       _polling = false;
     }

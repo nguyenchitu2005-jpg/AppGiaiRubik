@@ -201,6 +201,31 @@ void main() {
       expect(scan.stepIndex, 1, reason: 'held in place: captured');
     });
 
+    test('a frame now and then without the face does not start over', () {
+      final scan = ScanController();
+      final green = _face(cube, Face.f);
+      var t = Duration.zero;
+      // Every third picture the face finder misses the face (a blur, a
+      // hand): the hold goes on and the face is captured.
+      for (var i = 0; i < 40 && scan.stepIndex == 0; i++) {
+        t += const Duration(milliseconds: 300);
+        if (i % 3 == 2) {
+          scan.lostSight(t);
+        } else {
+          scan.addFrame(green, t);
+        }
+      }
+      expect(scan.stepIndex, 1);
+      expect(t, lessThan(const Duration(seconds: 4)));
+
+      // The face gone for over a second: the hold starts over.
+      final red = _face(cube, Face.r);
+      t = hold(scan, red, t, 12);
+      expect(scan.autoProgress(t), greaterThan(0));
+      scan.lostSight(t + const Duration(milliseconds: 1200));
+      expect(scan.live, isNull);
+    });
+
     test('not when the center is not the face asked for', () {
       final scan = ScanController();
       hold(scan, _face(cube, Face.r), Duration.zero, 20);
