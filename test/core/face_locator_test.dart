@@ -227,6 +227,38 @@ void main() {
     expect(grid.width * w, closeTo(240, 30));
   });
 
+  test('two green rows of a face are not a solved face', () {
+    // One move from solved: the front's top row is red, the rest green.
+    // A grid inside the green part reads all green, just what the end of
+    // the solve looks like, even when all green is the color favoured.
+    final almost = [for (var i = 0; i < 9; i++) i < 3 ? Face.r : Face.f];
+    final hoping = FaceLocator(
+      colorOf: LiveColorClassifier.pixelColor,
+      centerOk: (c) => c == Face.f,
+      bonus: (colors) => colors.every((c) => c == Face.f) ? 3 : 0,
+    );
+    for (final (left, top, side) in [(200, 120, 240), (60, 40, 180)]) {
+      final photo = _photo(almost, left: left, top: top, side: side);
+      final grid = hoping.locate(
+        GridSampler.downsample(
+          photo,
+          width: 200,
+          aspect: 640 / 480,
+          rotation: 0,
+        ),
+      );
+      expect(grid, isNotNull);
+      expect(
+        [
+          for (final s in GridSampler.sample(photo, grid: grid!, rotation: 0))
+            LiveColorClassifier.classify(s),
+        ],
+        almost,
+        reason: 'face at $left,$top',
+      );
+    }
+  });
+
   test('no face, or not the face looked for: nothing found', () {
     // Only the room.
     expect(read(_photo(front, left: -999, top: -999, side: 90)), isNull);

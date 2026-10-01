@@ -78,6 +78,7 @@ class SolveTracker extends ChangeNotifier {
     this.minFrames = 2,
     this.lostAfter = const Duration(milliseconds: 1500),
     this.lookahead = 4,
+    this.jumpHold = const Duration(milliseconds: 1200),
   }) : _plan = List.of(solution) {
     _replan();
     if (_plan.isEmpty) _phase = TrackerPhase.solved;
@@ -104,6 +105,12 @@ class SolveTracker extends ChangeNotifier {
 
   /// How many moves ahead of the voice the solver may be.
   final int lookahead;
+
+  /// Skipping ahead several moves at once (or straight to solved) takes a
+  /// view held this long: one face alone can mislead (a misread, or the
+  /// same front face as a later position), and a fast solver stays on the
+  /// result anyway.
+  final Duration jumpHold;
 
   List<Move> _plan;
   late List<CubeState> _states;
@@ -283,7 +290,16 @@ class SolveTracker extends ChangeNotifier {
       final before = _done;
       // Rather ahead than behind; the nearest such position.
       final ahead = matches.where((k) => k > _done);
-      _done = ahead.isNotEmpty ? ahead.first : matches.last;
+      final target = ahead.isNotEmpty ? ahead.first : matches.last;
+      final jump = target - _done;
+      // Skipping moves: only on an exact match, and a long jump (or one
+      // to the end) only once the view holds still.
+      if (jump > 1 && best < 9) return;
+      if ((jump > 2 || (jump > 1 && target == _plan.length)) &&
+          held < jumpHold) {
+        return;
+      }
+      _done = target;
       _confirmed = _done;
       if (_done == _plan.length) {
         _phase = TrackerPhase.solved;

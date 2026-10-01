@@ -132,7 +132,7 @@ class FaceLocator {
     // A grid's score (null when it is not a face): how pure its cells
     // are, how much it stands out from around it, how well its lines lie
     // on seams; and its center color.
-    (double, int)? evaluate(double left, double top, double side) {
+    (double, int, bool)? evaluate(double left, double top, double side) {
       if (left < 0 || top < 0 || left + side > w || top + side > h) {
         return null;
       }
@@ -265,47 +265,91 @@ class FaceLocator {
       if (extra != null) {
         score += extra([for (final c in colors) Face.values[c]]);
       }
-      return (score, center);
+      return (score, center, colors.every((c) => c == center));
     }
 
     // Coarse: every size and place, a third of a cell apart.
     final short = w < h ? w : h;
-    final candidates = <(double, double, double, double)>[];
+    final candidates = <(double, double, double, double, bool)>[];
     for (var side = short * minShare; side <= short; side *= 1.12) {
       final step = side / 9 < 1 ? 1.0 : side / 9;
       for (var top = 0.0; top + side <= h; top += step) {
         for (var left = 0.0; left + side <= w; left += step) {
           final result = evaluate(left, top, side);
-          if (result != null) candidates.add((result.$1, left, top, side));
+          if (result != null) {
+            candidates.add((result.$1, left, top, side, result.$3));
+          }
         }
       }
     }
     if (candidates.isEmpty) return null;
     candidates.sort((a, b) => b.$1.compareTo(a.$1));
 
-    // Fine: around the best few, pixel by pixel (a grid a little off the
+    // Fine: around a candidate, pixel by pixel (a grid a little off the
     // stickers misses the seams).
-    var best = -1.0;
-    var bestCenter = -1;
-    Rect? found;
-    for (final (_, left0, top0, side0) in candidates.take(6)) {
+    (double, int, bool, Rect)? refine(double left0, double top0, double side0) {
+      (double, int, bool, Rect)? best;
       final reach = side0 / 18 < 1 ? 1 : (side0 / 18).ceil();
       for (final side in [side0 / 1.05, side0, side0 * 1.05]) {
         for (var dy = -reach; dy <= reach; dy++) {
           for (var dx = -reach; dx <= reach; dx++) {
             final left = left0 + dx, top = top0 + dy;
             final result = evaluate(left, top, side);
-            if (result == null || result.$1 <= best) continue;
-            best = result.$1;
-            bestCenter = result.$2;
-            found = Rect.fromLTWH(left / w, top / h, side / w, side / h);
+            if (result == null || (best != null && result.$1 <= best.$1)) {
+              continue;
+            }
+            best = (
+              result.$1,
+              result.$2,
+              result.$3,
+              Rect.fromLTWH(left, top, side, side),
+            );
           }
         }
       }
+      return best;
     }
+
+    (double, int, bool, Rect)? best;
+    for (final (_, left, top, side, _) in candidates.take(6)) {
+      final result = refine(left, top, side);
+      if (result != null && (best == null || result.$1 > best.$1)) {
+        best = result;
+      }
+    }
+    if (best == null) return null;
+
+    // One color all over, inside a face of several colors: a corner of that
+    // face that happens to be one color (two green rows of a face whose top
+    // row is red), not a face. The face it lies in wins.
+    if (best.$3) {
+      final inner = best.$4;
+      final slack = inner.width / 6;
+      for (final (_, left, top, side, uniform) in candidates) {
+        if (uniform ||
+            side <= inner.width * 1.1 ||
+            left > inner.left + slack ||
+            top > inner.top + slack ||
+            left + side < inner.right - slack ||
+            top + side < inner.bottom - slack) {
+          continue;
+        }
+        final outer = refine(left, top, side);
+        if (outer != null && !outer.$3) {
+          best = outer;
+          break;
+        }
+      }
+    }
+    final (_, center, _, rect) = best!;
     // The clearest face in the picture, if it is the one looked for: a
     // grid inside another face, or half on it, never beats the face itself.
-    if (found == null || !centerOk(Face.values[bestCenter])) return null;
-    return found;
+    if (!centerOk(Face.values[center])) return null;
+    return Rect.fromLTWH(
+      rect.left / w,
+      rect.top / h,
+      rect.width / w,
+      rect.height / h,
+    );
   }
 }

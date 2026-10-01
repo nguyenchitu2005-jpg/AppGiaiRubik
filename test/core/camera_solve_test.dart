@@ -85,9 +85,28 @@ void main() {
       expect(tracker.done, 2);
       expect(tracker.takeNews(), isA<TrackerWentBack>());
 
-      _show(tracker, _front(CubeState.solved()), t);
+      // Three moves at once, to the end: only once the view holds still
+      // (one face alone can mislead).
+      t = _show(tracker, _front(CubeState.solved()), t);
+      expect(tracker.phase, TrackerPhase.solving);
+      _show(tracker, _front(CubeState.solved()), t, frames: 10);
       expect(tracker.phase, TrackerPhase.solved);
       expect(tracker.takeNews(), isA<TrackerSolved>());
+    });
+
+    test('a misread far ahead does not skip the solve', () {
+      final tracker = SolveTracker(start: start, solution: solution);
+      var t = _show(tracker, _front(start), Duration.zero);
+      // A glimpse of an all-green front (a corner of the face misread),
+      // gone before it holds: the solve goes on.
+      t = _show(tracker, _front(CubeState.solved()), t, frames: 6);
+      expect(tracker.phase, TrackerPhase.solving);
+      expect(tracker.done, 0);
+      // Close to a later position but not exactly: no skipping either.
+      final almost = _front(after(3));
+      almost[0] = almost[0] == Face.u ? Face.d : Face.u;
+      _show(tracker, almost, t);
+      expect(tracker.done, 0);
     });
 
     test('a hand passing in front changes nothing', () {
