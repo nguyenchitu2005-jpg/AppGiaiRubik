@@ -220,8 +220,12 @@ class _ScanScreenState extends State<ScanScreen> {
                   stable: _scan.isStable,
                   onSamples: _scan.addFrame,
                   locator: _locator,
-                  onLocated: (found) {
-                    if (!found) _scan.lostSight();
+                  onLocated: (grid) {
+                    if (grid == null) {
+                      _scan.lostSight();
+                    } else {
+                      _scan.nextGrid = grid;
+                    }
                   },
                   onReady: (photoMode) => setState(() {
                     _photoMode = photoMode;

@@ -311,7 +311,7 @@ class CameraSolveScreenState extends ConsumerState<CameraSolveScreen> {
       stable: tracker != null && tracker.phase != TrackerPhase.aligning,
       onSamples: addSamples,
       locator: _locator,
-      onLocated: (found) => _faceSeen = found,
+      onLocated: (grid) => _faceSeen = grid != null,
       maxHeight: MediaQuery.sizeOf(context).height * (_photos ? 0.5 : 0.4),
     );
     final panel = _panel(context, tracker);

@@ -63,8 +63,9 @@ class CameraFeed extends StatefulWidget {
   /// Finds the face anywhere in the picture.
   final FaceLocator? locator;
 
-  /// After each picture: whether [locator] found the face.
-  final ValueChanged<bool>? onLocated;
+  /// After each picture: where [locator] found the face (null: nowhere),
+  /// in normalized coordinates of the preview.
+  final ValueChanged<Rect?>? onLocated;
 
   @override
   State<CameraFeed> createState() => CameraFeedState();
@@ -361,7 +362,7 @@ class CameraFeedState extends State<CameraFeed> with WidgetsBindingObserver {
           mirrored: mirrored,
         ),
       );
-      widget.onLocated?.call(found != null);
+      widget.onLocated?.call(found);
     }
     _found = found;
     if (locator != null && found == null && !fallback) return null;

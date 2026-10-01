@@ -148,20 +148,57 @@ void main() {
     test('a clear face with the right center held still is captured', () {
       final scan = ScanController();
       final green = _face(cube, Face.f);
-      var t = hold(scan, green, Duration.zero, 6);
+      var t = hold(scan, green, Duration.zero, 10);
       expect(scan.isClear, isTrue);
-      expect(scan.stepIndex, 0, reason: 'held 0.6 s: not yet');
+      expect(scan.stepIndex, 0, reason: 'held 0.9 s: not yet');
       expect(scan.autoProgress(t), inInclusiveRange(0.5, 0.8));
-      t = hold(scan, green, t, 5);
-      expect(scan.stepIndex, 1, reason: 'held about 1 s: captured');
+      t = hold(scan, green, t, 6);
+      expect(scan.stepIndex, 1, reason: 'held about 1.5 s: captured');
       expect(scan.capturedPreview.keys, [Face.f]);
 
       // Still the green face: the next one (red center) is not captured.
       t = hold(scan, green, t, 20);
       expect(scan.stepIndex, 1);
       // Turned to the red face: captured in turn.
-      hold(scan, _face(cube, Face.r), t, 12);
+      hold(scan, _face(cube, Face.r), t, 16);
       expect(scan.stepIndex, 2);
+    });
+
+    test('not while the cube still turns: colors drifting', () {
+      final scan = ScanController();
+      final green = _face(cube, Face.f);
+      var t = Duration.zero;
+      // The same color guesses, but the light on each sticker changing as
+      // the face turns toward the camera.
+      for (var i = 0; i < 30; i++) {
+        final k = 0.55 + i * 0.03;
+        final tilt = (i % 2 == 0) ? 1.0 : 0.88;
+        t += frame;
+        scan.addFrame([
+          for (final c in green) Rgb(c.r * k, c.g * k * tilt, c.b * k),
+        ], t);
+      }
+      expect(scan.stepIndex, 0, reason: 'never still: not captured');
+      hold(scan, green, t, 16);
+      expect(scan.stepIndex, 1, reason: 'held still: captured');
+    });
+
+    test('not while the cube moves across the picture', () {
+      final scan = ScanController();
+      final green = _face(cube, Face.f);
+      var t = Duration.zero;
+      for (var i = 0; i < 30; i++) {
+        t += frame;
+        scan.nextGrid = Rect.fromLTWH(0.1 + i * 0.02, 0.2, 0.3, 0.4);
+        scan.addFrame(green, t);
+      }
+      expect(scan.stepIndex, 0, reason: 'moving: not captured');
+      for (var i = 0; i < 16; i++) {
+        t += frame;
+        scan.nextGrid = const Rect.fromLTWH(0.5, 0.2, 0.3, 0.4);
+        scan.addFrame(green, t);
+      }
+      expect(scan.stepIndex, 1, reason: 'held in place: captured');
     });
 
     test('not when the center is not the face asked for', () {
@@ -237,7 +274,7 @@ void main() {
       var t = Duration.zero;
       for (final step in ScanController.steps.take(4)) {
         final samples = look(step.face);
-        for (var i = 0; i < 12 && scan.step?.face == step.face; i++) {
+        for (var i = 0; i < 20 && scan.step?.face == step.face; i++) {
           t += frame;
           scan.addFrame(samples, t);
           if (scan.step?.face == step.face) {
@@ -262,7 +299,7 @@ void main() {
       // The last two faces, then the whole cube comes out right.
       for (final step in ScanController.steps.skip(4)) {
         final samples = look(step.face);
-        for (var i = 0; i < 12 && scan.step?.face == step.face; i++) {
+        for (var i = 0; i < 20 && scan.step?.face == step.face; i++) {
           t += frame;
           scan.addFrame(samples, t);
         }

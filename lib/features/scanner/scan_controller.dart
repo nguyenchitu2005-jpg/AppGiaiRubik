@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'dart:ui' show Rect;
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/cube/face.dart';
@@ -53,8 +55,14 @@ class ScanController extends ChangeNotifier {
   static const stableFor = Duration(milliseconds: 500);
 
   /// A clearly read face showing the expected center is captured by itself
-  /// once held still this long.
-  static const autoCaptureAfter = Duration(milliseconds: 900);
+  /// once held still this long, over at least [autoCaptureFrames] frames
+  /// (taking a face too soon, while it still moves, mixes up colors).
+  static const autoCaptureAfter = Duration(milliseconds: 1400);
+  static const autoCaptureFrames = 3;
+
+  /// Where the face finder saw the face in the next frame (null: no finder,
+  /// a fixed grid).
+  Rect? nextGrid;
 
   /// Capture faces by themselves (see [autoCaptureAfter]).
   bool autoCapture = true;
@@ -150,17 +158,21 @@ class ScanController extends ChangeNotifier {
         _label(samples[i], center: i == 4),
     ];
     _frames
-      ..add(_Frame(time, labels, samples))
-      ..removeWhere((f) => time - f.time > stableFor * 3);
-    _stable = time - _stableRun.first.time >= stableFor;
-    // The face is read: the right center, every sticker clear, held still.
-    // (Until the cube is turned, the center no longer matches the next
-    // face, so the same face is not captured twice.)
+      ..add(_Frame(time, labels, samples, nextGrid))
+      ..removeWhere((f) => time - f.time > autoCaptureAfter * 3);
+    nextGrid = null;
+    final run = _stableRun;
+    _stable = time - run.first.time >= stableFor;
+    // The face is read: the right center, every sticker clear, held still
+    // long enough. (Until the cube is turned, the center no longer matches
+    // the next face, so the same face is not captured twice.)
     if (autoCapture &&
         _stable &&
         live![4] == step!.face &&
         isClear &&
-        time - _stableRun.first.time >= autoCaptureAfter) {
+        run.length >= autoCaptureFrames &&
+        time - run.first.time >= autoCaptureAfter &&
+        !_alreadyCaptured(run.last.samples)) {
       capture();
       return;
     }
@@ -206,15 +218,41 @@ class ScanController extends ChangeNotifier {
     return ScanAssembler.assemble(_captured);
   }
 
-  /// Trailing frames whose guesses equal the latest ones.
+  /// Trailing frames showing the same as the latest one: the same color
+  /// guesses, each sticker's color hardly changed (a cube still turning or
+  /// blurred shifts them), and the face in the same place.
   List<_Frame> get _stableRun {
-    final latest = _frames.last.labels;
+    final latest = _frames.last;
     var start = _frames.length - 1;
-    while (start > 0 && listEquals(_frames[start - 1].labels, latest)) {
+    while (start > 0 && _same(_frames[start - 1], latest)) {
       start--;
     }
     return _frames.sublist(start);
   }
+
+  static bool _same(_Frame a, _Frame b) {
+    if (!listEquals(a.labels, b.labels)) return false;
+    for (var i = 0; i < 9; i++) {
+      if (_chromaDistance(a.samples[i], b.samples[i]) > 0.04) return false;
+      final va = a.samples[i].toHsv().v, vb = b.samples[i].toHsv().v;
+      if (va < vb * 0.75 || vb < va * 0.75) return false;
+    }
+    final ga = a.grid, gb = b.grid;
+    if (ga != null && gb != null) {
+      final size = (ga.width + gb.width) / 2;
+      if ((ga.center - gb.center).distance > size * 0.15) return false;
+      if ((ga.width - gb.width).abs() > size * 0.15) return false;
+    }
+    return true;
+  }
+
+  /// [samples] look just like a face already captured (the same face shown
+  /// again).
+  bool _alreadyCaptured(List<Rgb> samples) => _captured.values.any(
+    (face) =>
+        [for (var i = 0; i < 9; i++) i]
+            .every((i) => _chromaDistance(face[i], samples[i]) < 0.03),
+  );
 
   void _reset() {
     _frames.clear();
@@ -224,9 +262,10 @@ class ScanController extends ChangeNotifier {
 }
 
 class _Frame {
-  const _Frame(this.time, this.labels, this.samples);
+  const _Frame(this.time, this.labels, this.samples, this.grid);
 
   final Duration time;
   final List<Face> labels;
   final List<Rgb> samples;
+  final Rect? grid;
 }
